@@ -1,0 +1,4 @@
+2015-08-10 https://github.com/cyrusimap/cyrus-imapd/commit/a2a5faa4fef36141c14b6cac9fe6260467761d8c
+2015-07-17 https://github.com/cyrusimap/cyrus-imapd/commit/4f2e853e9df6cd9991384fcc445b67b51ba32cad
+2015-05-18 https://github.com/cyrusimap/cyrus-imapd/commit/94272bc85c286169f20c33c353c3f5f5ae8f21de
+2015-05-18 https://github.com/cyrusimap/cyrus-imapd/commit/7fa0a7ee792c1c8ef840407732f1a70b000e0e82

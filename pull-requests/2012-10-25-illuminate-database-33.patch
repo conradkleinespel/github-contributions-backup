@@ -1,0 +1,93 @@
+From 962f38e8adec617711450662d0c6b5f10b68947d Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 26 Oct 2012 02:49:45 +0300
+Subject: [PATCH 1/4] Change bigint to integer in Postgres schema grammar.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Bigint has too big a range to be returned as an int in PHP. It is returned as a string, which can be confusing and lead to unexpected results. In addition, the range of integer is suitable for most cases: -2147483648 to +2147483647.
+---
+ src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+index 709ee3672..6ed01e580 100644
+--- a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
++++ b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+@@ -219,7 +219,7 @@ protected function typeText(Fluent $column)
+ 	 */
+ 	protected function typeInteger(Fluent $column)
+ 	{
+-		return $column->autoIncrement ? 'serial' : 'bigint';
++		return $column->autoIncrement ? 'serial' : 'integer';
+ 	}
+ 
+ 	/**
+
+From b1aebdb81f75d8779f8dc803d590775999471d48 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 26 Oct 2012 14:12:02 +0300
+Subject: [PATCH 2/4] Updated unit tests.
+
+---
+ tests/PostgresSchemaGrammarTest.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/PostgresSchemaGrammarTest.php b/tests/PostgresSchemaGrammarTest.php
+index ec0d18591..43cb20512 100644
+--- a/tests/PostgresSchemaGrammarTest.php
++++ b/tests/PostgresSchemaGrammarTest.php
+@@ -214,7 +214,7 @@ public function testAddingInteger()
+ 		$statements = $blueprint->toSql($this->getGrammar());
+ 
+ 		$this->assertEquals(1, count($statements));
+-		$this->assertEquals('alter table "users" add column "foo" bigint not null', $statements[0]);
++		$this->assertEquals('alter table "users" add column "foo" integer not null', $statements[0]);
+ 
+ 		$blueprint = new Blueprint('users');
+ 		$blueprint->integer('foo', true);
+
+From 0f709a7ecb8d18296041e43a3481ed6e1543d47f Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 29 Oct 2012 01:12:56 +0100
+Subject: [PATCH 3/4] Update
+ src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+
+---
+ src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+index 6ed01e580..228ef6e3a 100644
+--- a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
++++ b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+@@ -1,5 +1,6 @@
+ <?php namespace Illuminate\Database\Schema\Grammars;
+ 
++
+ use Illuminate\Support\Fluent;
+ use Illuminate\Database\Schema\Blueprint;
+ 
+
+From 4790c09e5fb705714444d72ba3b716093037710a Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 29 Oct 2012 01:13:03 +0100
+Subject: [PATCH 4/4] Update
+ src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+
+---
+ src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+index 228ef6e3a..6ed01e580 100644
+--- a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
++++ b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+@@ -1,6 +1,5 @@
+ <?php namespace Illuminate\Database\Schema\Grammars;
+ 
+-
+ use Illuminate\Support\Fluent;
+ use Illuminate\Database\Schema\Blueprint;
+ 

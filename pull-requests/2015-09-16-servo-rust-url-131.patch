@@ -1,0 +1,23 @@
+From ff02193717abbe8c5148c81f7ff881b7ba8f5d34 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Wed, 16 Sep 2015 11:09:42 +0200
+Subject: [PATCH] adds docs about query string decoding
+
+---
+ src/lib.rs | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 15ae98e0c..7f5ac9618 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -393,6 +393,9 @@ impl<'a> UrlParser<'a> {
+ /// assert_eq!(query, Some("q=42".to_string()));
+ /// assert_eq!(fragment, None);
+ /// ```
++///
++/// The query string returned by `url::parse_path` can be decoded with
++/// `url::form_urlencoded::parse`.
+ #[inline]
+ pub fn parse_path(input: &str)
+                   -> ParseResult<(Vec<String>, Option<String>, Option<String>)> {

@@ -1,0 +1,492 @@
+From 21208e82cb3b0904a81cf96e361338988338b046 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk-ubuntu.(none)>
+Date: Sat, 8 Sep 2012 10:44:51 +0200
+Subject: [PATCH] Update Facebook SDK.
+
+---
+ facebook/base_facebook.php | 228 +++++++++++++++++++++++++++++++------
+ facebook/facebook.php      |  75 +++++++++++-
+ 2 files changed, 263 insertions(+), 40 deletions(-)
+
+diff --git a/facebook/base_facebook.php b/facebook/base_facebook.php
+index 772cc97..ac48a46 100644
+--- a/facebook/base_facebook.php
++++ b/facebook/base_facebook.php
+@@ -120,7 +120,12 @@ abstract class BaseFacebook
+   /**
+    * Version.
+    */
+-  const VERSION = '3.1.1';
++  const VERSION = '3.2.0';
++
++  /**
++   * Signed Request Algorithm.
++   */
++  const SIGNED_REQUEST_ALGORITHM = 'HMAC-SHA256';
+ 
+   /**
+    * Default options for curl.
+@@ -129,7 +134,7 @@ abstract class BaseFacebook
+     CURLOPT_CONNECTTIMEOUT => 10,
+     CURLOPT_RETURNTRANSFER => true,
+     CURLOPT_TIMEOUT        => 60,
+-    CURLOPT_USERAGENT      => 'facebook-php-3.1',
++    CURLOPT_USERAGENT      => 'facebook-php-3.2',
+   );
+ 
+   /**
+@@ -146,12 +151,12 @@ abstract class BaseFacebook
+    * Maps aliases to Facebook domains.
+    */
+   public static $DOMAIN_MAP = array(
+-    'api'       => 'https://api.facebook.com/',
+-    'api_video' => 'https://api-video.facebook.com/',
+-    'api_read'  => 'https://api-read.facebook.com/',
+-    'graph'     => 'https://graph.facebook.com/',
++    'api'         => 'https://api.facebook.com/',
++    'api_video'   => 'https://api-video.facebook.com/',
++    'api_read'    => 'https://api-read.facebook.com/',
++    'graph'       => 'https://graph.facebook.com/',
+     'graph_video' => 'https://graph-video.facebook.com/',
+-    'www'       => 'https://www.facebook.com/',
++    'www'         => 'https://www.facebook.com/',
+   );
+ 
+   /**
+@@ -200,6 +205,13 @@ abstract class BaseFacebook
+    */
+   protected $fileUploadSupport = false;
+ 
++  /**
++   * Indicates if we trust HTTP_X_FORWARDED_* headers.
++   *
++   * @var boolean
++   */
++  protected $trustForwarded = false;
++
+   /**
+    * Initialize a Facebook Application.
+    *
+@@ -216,10 +228,12 @@ public function __construct($config) {
+     if (isset($config['fileUpload'])) {
+       $this->setFileUploadSupport($config['fileUpload']);
+     }
+-
++    if (isset($config['trustForwarded']) && $config['trustForwarded']) {
++      $this->trustForwarded = true;
++    }
+     $state = $this->getPersistentData('state');
+     if (!empty($state)) {
+-      $this->state = $this->getPersistentData('state');
++      $this->state = $state;
+     }
+   }
+ 
+@@ -329,6 +343,49 @@ public function setAccessToken($access_token) {
+     return $this;
+   }
+ 
++  /**
++   * Extend an access token, while removing the short-lived token that might
++   * have been generated via client-side flow. Thanks to http://bit.ly/b0Pt0H
++   * for the workaround.
++   */
++  public function setExtendedAccessToken() {
++    try {
++      // need to circumvent json_decode by calling _oauthRequest
++      // directly, since response isn't JSON format.
++      $access_token_response = $this->_oauthRequest(
++        $this->getUrl('graph', '/oauth/access_token'),
++        $params = array(
++          'client_id' => $this->getAppId(),
++          'client_secret' => $this->getAppSecret(),
++          'grant_type' => 'fb_exchange_token',
++          'fb_exchange_token' => $this->getAccessToken(),
++        )
++      );
++    }
++    catch (FacebookApiException $e) {
++      // most likely that user very recently revoked authorization.
++      // In any event, we don't have an access token, so say so.
++      return false;
++    }
++  
++    if (empty($access_token_response)) {
++      return false;
++    }
++      
++    $response_params = array();
++    parse_str($access_token_response, $response_params);
++    
++    if (!isset($response_params['access_token'])) {
++      return false;
++    }
++    
++    $this->destroySession();
++    
++    $this->setPersistentData(
++      'access_token', $response_params['access_token']
++    );
++  }
++
+   /**
+    * Determines the access token that should be used for API calls.
+    * The first time this is called, $this->accessToken is set equal
+@@ -544,7 +601,7 @@ public function getLogoutUrl($params=array()) {
+       'logout.php',
+       array_merge(array(
+         'next' => $this->getCurrentUrl(),
+-        'access_token' => $this->getAccessToken(),
++        'access_token' => $this->getUserAccessToken(),
+       ), $params)
+     );
+   }
+@@ -752,10 +809,13 @@ protected function _restserver($params) {
+     // results are returned, errors are thrown
+     if (is_array($result) && isset($result['error_code'])) {
+       $this->throwAPIException($result);
++      // @codeCoverageIgnoreStart
+     }
++    // @codeCoverageIgnoreEnd
+ 
+-    if ($params['method'] === 'auth.expireSession' ||
+-        $params['method'] === 'auth.revokeAuthorization') {
++    $method = strtolower($params['method']);
++    if ($method === 'auth.expiresession' ||
++        $method === 'auth.revokeauthorization') {
+       $this->destroySession();
+     }
+ 
+@@ -808,7 +868,9 @@ protected function _graph($path, $method = 'GET', $params = array()) {
+     // results are returned, errors are thrown
+     if (is_array($result) && isset($result['error'])) {
+       $this->throwAPIException($result);
++      // @codeCoverageIgnoreStart
+     }
++    // @codeCoverageIgnoreEnd
+ 
+     return $result;
+   }
+@@ -882,6 +944,25 @@ protected function makeRequest($url, $params, $ch=null) {
+       $result = curl_exec($ch);
+     }
+ 
++    // With dual stacked DNS responses, it's possible for a server to
++    // have IPv6 enabled but not have IPv6 connectivity.  If this is
++    // the case, curl will try IPv4 first and if that fails, then it will
++    // fall back to IPv6 and the error EHOSTUNREACH is returned by the
++    // operating system.
++    if ($result === false && empty($opts[CURLOPT_IPRESOLVE])) {
++        $matches = array();
++        $regex = '/Failed to connect to ([^:].*): Network is unreachable/';
++        if (preg_match($regex, curl_error($ch), $matches)) {
++          if (strlen(@inet_pton($matches[1])) === 16) {
++            self::errorLog('Invalid IPv6 configuration on server, '.
++                           'Please disable or get native IPv6 on your server.');
++            self::$CURL_OPTS[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
++            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
++            $result = curl_exec($ch);
++          }
++        }
++    }
++
+     if ($result === false) {
+       $e = new FacebookApiException(array(
+         'error_code' => curl_errno($ch),
+@@ -910,8 +991,9 @@ protected function parseSignedRequest($signed_request) {
+     $sig = self::base64UrlDecode($encoded_sig);
+     $data = json_decode(self::base64UrlDecode($payload), true);
+ 
+-    if (strtoupper($data['algorithm']) !== 'HMAC-SHA256') {
+-      self::errorLog('Unknown algorithm. Expected HMAC-SHA256');
++    if (strtoupper($data['algorithm']) !== self::SIGNED_REQUEST_ALGORITHM) {
++      self::errorLog(
++        'Unknown algorithm. Expected ' . self::SIGNED_REQUEST_ALGORITHM);
+       return null;
+     }
+ 
+@@ -926,6 +1008,26 @@ protected function parseSignedRequest($signed_request) {
+     return $data;
+   }
+ 
++  /**
++   * Makes a signed_request blob using the given data.
++   *
++   * @param array The data array.
++   * @return string The signed request.
++   */
++  protected function makeSignedRequest($data) {
++    if (!is_array($data)) {
++      throw new InvalidArgumentException(
++        'makeSignedRequest expects an array. Got: ' . print_r($data, true));
++    }
++    $data['algorithm'] = self::SIGNED_REQUEST_ALGORITHM;
++    $data['issued_at'] = time();
++    $json = json_encode($data);
++    $b64 = self::base64UrlEncode($json);
++    $raw_sig = hash_hmac('sha256', $b64, $this->getAppSecret(), $raw = true);
++    $sig = self::base64UrlEncode($raw_sig);
++    return $sig.'.'.$b64;
++  }
++
+   /**
+    * Build the URL for api given parameters.
+    *
+@@ -1027,6 +1129,43 @@ protected function getUrl($name, $path='', $params=array()) {
+     return $url;
+   }
+ 
++  protected function getHttpHost() {
++    if ($this->trustForwarded && isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
++      return $_SERVER['HTTP_X_FORWARDED_HOST'];
++    }
++    return $_SERVER['HTTP_HOST'];
++  }
++
++  protected function getHttpProtocol() {
++    if ($this->trustForwarded && isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
++      if ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
++        return 'https';
++      }
++      return 'http';
++    }
++    if (isset($_SERVER['HTTPS']) &&
++        ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] == 1)) {
++      return 'https';
++    }
++    return 'http';
++  }
++
++  /**
++   * Get the base domain used for the cookie.
++   */
++  protected function getBaseDomain() {
++    // The base domain is stored in the metadata cookie if not we fallback
++    // to the current hostname
++    $metadata = $this->getMetadataCookie();
++    if (array_key_exists('base_domain', $metadata) &&
++        !empty($metadata['base_domain'])) {
++      return trim($metadata['base_domain'], '.');
++    }
++    return $this->getHttpHost();
++  }
++
++  /**
++
+   /**
+    * Returns the Current URL, stripping it of known FB parameters that should
+    * not persist.
+@@ -1034,16 +1173,9 @@ protected function getUrl($name, $path='', $params=array()) {
+    * @return string The current URL
+    */
+   protected function getCurrentUrl() {
+-    if (isset($_SERVER['HTTPS']) &&
+-        ($_SERVER['HTTPS'] == 'on' || $_SERVER['HTTPS'] == 1) ||
+-        isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
+-        $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https') {
+-      $protocol = 'https://';
+-    }
+-    else {
+-      $protocol = 'http://';
+-    }
+-    $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
++    $protocol = $this->getHttpProtocol() . '://';
++    $host = $this->getHttpHost();
++    $currentUrl = $protocol.$host.$_SERVER['REQUEST_URI'];
+     $parts = parse_url($currentUrl);
+ 
+     $query = '';
+@@ -1146,6 +1278,7 @@ protected static function errorLog($msg) {
+    * Exactly the same as base64_encode except it uses
+    *   - instead of +
+    *   _ instead of /
++   *   No padded =
+    *
+    * @param string $input base64UrlEncoded string
+    * @return string
+@@ -1154,6 +1287,21 @@ protected static function base64UrlDecode($input) {
+     return base64_decode(strtr($input, '-_', '+/'));
+   }
+ 
++  /**
++   * Base64 encoding that doesn't need to be urlencode()ed.
++   * Exactly the same as base64_encode except it uses
++   *   - instead of +
++   *   _ instead of /
++   *
++   * @param string $input string
++   * @return string base64Url encoded string
++   */
++  protected static function base64UrlEncode($input) {
++    $str = strtr(base64_encode($input), '+/', '-_');
++    $str = str_replace('=', '', $str);
++    return $str;
++  }
++
+   /**
+    * Destroy the current session
+    */
+@@ -1169,23 +1317,16 @@ public function destroySession() {
+     if (array_key_exists($cookie_name, $_COOKIE)) {
+       unset($_COOKIE[$cookie_name]);
+       if (!headers_sent()) {
+-        // The base domain is stored in the metadata cookie if not we fallback
+-        // to the current hostname
+-        $base_domain = '.'. $_SERVER['HTTP_HOST'];
+-
+-        $metadata = $this->getMetadataCookie();
+-        if (array_key_exists('base_domain', $metadata) &&
+-            !empty($metadata['base_domain'])) {
+-          $base_domain = $metadata['base_domain'];
+-        }
+-
+-        setcookie($cookie_name, '', 0, '/', $base_domain);
++        $base_domain = $this->getBaseDomain();
++        setcookie($cookie_name, '', 1, '/', '.'.$base_domain);
+       } else {
++        // @codeCoverageIgnoreStart
+         self::errorLog(
+           'There exists a cookie that we wanted to clear that we couldn\'t '.
+           'clear because headers was already sent. Make sure to do the first '.
+-          'API call before outputing anything'
++          'API call before outputing anything.'
+         );
++        // @codeCoverageIgnoreEnd
+       }
+     }
+   }
+@@ -1221,6 +1362,21 @@ protected function getMetadataCookie() {
+     return $metadata;
+   }
+ 
++  protected static function isAllowedDomain($big, $small) {
++    if ($big === $small) {
++      return true;
++    }
++    return self::endsWith($big, '.'.$small);
++  }
++
++  protected static function endsWith($big, $small) {
++    $len = strlen($small);
++    if ($len === 0) {
++      return true;
++    }
++    return substr($big, -$len) === $small;
++  }
++
+   /**
+    * Each of the following four methods should be overridden in
+    * a concrete subclass, as they are in the provided Facebook class.
+diff --git a/facebook/facebook.php b/facebook/facebook.php
+index c577c2a..a2238ef 100644
+--- a/facebook/facebook.php
++++ b/facebook/facebook.php
+@@ -23,13 +23,25 @@
+  */
+ class Facebook extends BaseFacebook
+ {
++  const FBSS_COOKIE_NAME = 'fbss';
++
++  // We can set this to a high number because the main session
++  // expiration will trump this.
++  const FBSS_COOKIE_EXPIRE = 31556926; // 1 year
++
++  // Stores the shared session ID if one is set.
++  protected $sharedSessionID;
++
+   /**
+    * Identical to the parent constructor, except that
+    * we start a PHP session to store the user ID and
+    * access token if during the course of execution
+    * we discover them.
+    *
+-   * @param Array $config the application configuration.
++   * @param Array $config the application configuration. Additionally
++   * accepts "sharedSession" as a boolean to turn on a secondary
++   * cookie for environments with a shared session (that is, your app
++   * shares the domain with other apps).
+    * @see BaseFacebook::__construct in facebook.php
+    */
+   public function __construct($config) {
+@@ -37,11 +49,50 @@ public function __construct($config) {
+       session_start();
+     }
+     parent::__construct($config);
++    if (!empty($config['sharedSession'])) {
++      $this->initSharedSession();
++    }
+   }
+ 
+   protected static $kSupportedKeys =
+     array('state', 'code', 'access_token', 'user_id');
+ 
++  protected function initSharedSession() {
++    $cookie_name = $this->getSharedSessionCookieName();
++    if (isset($_COOKIE[$cookie_name])) {
++      $data = $this->parseSignedRequest($_COOKIE[$cookie_name]);
++      if ($data && !empty($data['domain']) &&
++          self::isAllowedDomain($this->getHttpHost(), $data['domain'])) {
++        // good case
++        $this->sharedSessionID = $data['id'];
++        return;
++      }
++      // ignoring potentially unreachable data
++    }
++    // evil/corrupt/missing case
++    $base_domain = $this->getBaseDomain();
++    $this->sharedSessionID = md5(uniqid(mt_rand(), true));
++    $cookie_value = $this->makeSignedRequest(
++      array(
++        'domain' => $base_domain,
++        'id' => $this->sharedSessionID,
++      )
++    );
++    $_COOKIE[$cookie_name] = $cookie_value;
++    if (!headers_sent()) {
++      $expire = time() + self::FBSS_COOKIE_EXPIRE;
++      setcookie($cookie_name, $cookie_value, $expire, '/', '.'.$base_domain);
++    } else {
++      // @codeCoverageIgnoreStart
++      self::errorLog(
++        'Shared session ID cookie could not be set! You must ensure you '.
++        'create the Facebook instance before headers have been sent. This '.
++        'will cause authentication issues after the first request.'
++      );
++      // @codeCoverageIgnoreEnd
++    }
++  }
++
+   /**
+    * Provides the implementations of the inherited abstract
+    * methods.  The implementation uses PHP sessions to maintain
+@@ -83,11 +134,27 @@ protected function clearAllPersistentData() {
+     foreach (self::$kSupportedKeys as $key) {
+       $this->clearPersistentData($key);
+     }
++    if ($this->sharedSessionID) {
++      $this->deleteSharedSessionCookie();
++    }
++  }
++
++  protected function deleteSharedSessionCookie() {
++    $cookie_name = $this->getSharedSessionCookieName();
++    unset($_COOKIE[$cookie_name]);
++    $base_domain = $this->getBaseDomain();
++    setcookie($cookie_name, '', 1, '/', '.'.$base_domain);
++  }
++
++  protected function getSharedSessionCookieName() {
++    return self::FBSS_COOKIE_NAME . '_' . $this->getAppId();
+   }
+ 
+   protected function constructSessionVariableName($key) {
+-    return implode('_', array('fb',
+-                              $this->getAppId(),
+-                              $key));
++    $parts = array('fb', $this->getAppId(), $key);
++    if ($this->sharedSessionID) {
++      array_unshift($parts, $this->sharedSessionID);
++    }
++    return implode('_', $parts);
+   }
+ }

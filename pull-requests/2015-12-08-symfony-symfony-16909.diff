@@ -1,0 +1,75 @@
+diff --git a/src/Symfony/Component/Validator/Constraints/CallbackValidator.php b/src/Symfony/Component/Validator/Constraints/CallbackValidator.php
+index 28079b40f189..733ee43ba75e 100644
+--- a/src/Symfony/Component/Validator/Constraints/CallbackValidator.php
++++ b/src/Symfony/Component/Validator/Constraints/CallbackValidator.php
+@@ -34,7 +34,7 @@ public function validate($object, Constraint $constraint)
+ 
+         $method = $constraint->callback;
+         if ($method instanceof \Closure) {
+-            $method($object, $this->context);
++            $method($object, $this->context, $constraint->payload);
+         } elseif (is_array($method)) {
+             if (!is_callable($method)) {
+                 if (isset($method[0]) && is_object($method[0])) {
+@@ -43,7 +43,7 @@ public function validate($object, Constraint $constraint)
+                 throw new ConstraintDefinitionException(sprintf('%s targeted by Callback constraint is not a valid callable', json_encode($method)));
+             }
+ 
+-            call_user_func($method, $object, $this->context);
++            call_user_func($method, $object, $this->context, $constraint->payload);
+         } elseif (null !== $object) {
+             if (!method_exists($object, $method)) {
+                 throw new ConstraintDefinitionException(sprintf('Method "%s" targeted by Callback constraint does not exist in class %s', $method, get_class($object)));
+@@ -52,9 +52,9 @@ public function validate($object, Constraint $constraint)
+             $reflMethod = new \ReflectionMethod($object, $method);
+ 
+             if ($reflMethod->isStatic()) {
+-                $reflMethod->invoke(null, $object, $this->context);
++                $reflMethod->invoke(null, $object, $this->context, $constraint->payload);
+             } else {
+-                $reflMethod->invoke($object, $this->context);
++                $reflMethod->invoke($object, $this->context, $constraint->payload);
+             }
+         }
+     }
+diff --git a/src/Symfony/Component/Validator/Tests/Constraints/CallbackValidatorTest.php b/src/Symfony/Component/Validator/Tests/Constraints/CallbackValidatorTest.php
+index 9ec1348872a5..54fda6a5564a 100644
+--- a/src/Symfony/Component/Validator/Tests/Constraints/CallbackValidatorTest.php
++++ b/src/Symfony/Component/Validator/Tests/Constraints/CallbackValidatorTest.php
+@@ -15,7 +15,6 @@
+ use Symfony\Component\Validator\Constraints\Callback;
+ use Symfony\Component\Validator\Constraints\CallbackValidator;
+ use Symfony\Component\Validator\Context\ExecutionContextInterface;
+-use Symfony\Component\Validator\Validation;
+ 
+ class CallbackValidatorTest_Class
+ {
+@@ -227,4 +226,28 @@ public function testAnnotationInvocationMultiValued()
+ 
+         $this->assertEquals(new Callback(array(__CLASS__.'_Class', 'validateCallback')), $constraint);
+     }
++
++    public function testPayloadIsPassedToCallback()
++    {
++        $object = new \stdClass();
++        $payloadCopy = null;
++
++        $constraint = new Callback([
++            'callback' => function($object, ExecutionContextInterface $constraint, $payload) use (&$payloadCopy) {
++                $payloadCopy = $payload; 
++            },
++            'payload' => 'Hello world!',
++        ]);
++        $this->validator->validate($object, $constraint);
++        $this->assertEquals('Hello world!', $payloadCopy);
++
++        $payloadCopy = null;
++        $constraint = new Callback([
++            'callback' => function($object, ExecutionContextInterface $constraint, $payload) use (&$payloadCopy) {
++                $payloadCopy = $payload; 
++            },
++        ]);
++        $this->validator->validate($object, $constraint);
++        $this->assertNull($payloadCopy);
++    }
+ }

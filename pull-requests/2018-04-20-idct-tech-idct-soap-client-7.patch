@@ -1,0 +1,33 @@
+From 2b98bc18518d2e6e24c24c3c6c33a2edf9f9e6e3 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 20 Apr 2018 09:35:17 +0000
+Subject: [PATCH] Fixes typo, renames client.php to Client.php
+
+---
+ src/{client.php => Client.php} | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+ rename src/{client.php => Client.php} (98%)
+
+diff --git a/src/client.php b/src/Client.php
+similarity index 98%
+rename from src/client.php
+rename to src/Client.php
+index abb6a90..f3adcbc 100644
+--- a/src/client.php
++++ b/src/Client.php
+@@ -74,13 +74,13 @@ class Client extends \SoapClient
+      * Constructor of the new object. Creates an instance of the new SoapClient.
+      * Sets default values of the timeouts and number of retries.
+      *
+-     * @param sting $wsdl Url of the WebService's wsdl
++     * @param string $wsdl Url of the WebService's wsdl
+      * @param array $options PHP SoapClient's array of options
+      * @param int $negotiationTimeout Connection timeout in seconds. 0 to disable.
+      * @param int $persistanceFactor Number of retries.
+      * @param int $persistanceTimeout Read timeout in seconds. 0 to disable. null to use ini default_socket_timeout
+      */
+-    public function __construct($wsdl, $options, $negotiationTimeout = 0, $persistanceFactor = 1, $persistanceTimeout = null)
++    public function __construct($wsdl, $options = array(), $negotiationTimeout = 0, $persistanceFactor = 1, $persistanceTimeout = null)
+     {
+         if ($persistanceTimeout === null) {
+             //let us try default to default_socket_timeout

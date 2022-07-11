@@ -1,0 +1,3866 @@
+From b06a547b8507115193a1a3fc087e9119fba80bea Mon Sep 17 00:00:00 2001
+From: Michael Z <mzapata@student.42.fr>
+Date: Mon, 13 Jul 2015 10:54:03 +0200
+Subject: [PATCH 01/14] integration(npm): streamline installation process
+
+Makefile still relinks for some obscure reason, nothing's breaking
+though.
+---
+ Makefile     | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ binding.gyp  | 21 ++++++++++----------
+ package.json |  3 ++-
+ 3 files changed, 67 insertions(+), 11 deletions(-)
+ create mode 100644 Makefile
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..fb91745
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,54 @@
++TARGET		= build/Release/node-eclib.node
++GF			= gf_complete
++JERASURE	= Jerasure
++LIBERAS		= erasurecode
++
++LIBDIR		= /usr/local/lib
++LIBS		= $(addsuffix .so, $(GF) $(JERASURE) $(LIBERAS))
++DEPS		= $(addprefix $(LIBDIR)/lib, $(LIBS))
++
++
++all: $(TARGET)
++
++$(TARGET): $(DEPS)
++	sudo npm install -g node-gyp
++	node-gyp configure && node-gyp build
++
++$(GF):
++	git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
++
++$(GF)/Makefile: $(GF)
++	cd $^ && ./autogen.sh && ./configure
++
++$(LIBDIR)/libgf_complete.so: $(GF)/Makefile
++	$(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install
++
++$(JERASURE):
++	git clone http://lab.jerasure.org/jerasure/jerasure.git $@
++
++$(JERASURE)/Makefile: $(JERASURE)
++	cd $^ && autoreconf --force --install -I m4 && ./configure
++
++$(LIBDIR)/libJerasure.so: $(JERASURE)/Makefile
++	$(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install
++
++$(LIBERAS):
++	git clone https://bitbucket.org/tsg-/liberasurecode.git $@
++
++$(LIBERAS)/Makefile: $(LIBERAS)
++	cd $^ && ./autogen.sh && ./configure
++
++$(LIBDIR)/liberasurecode.so: $(LIBERAS)/Makefile
++	$(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
++		&& sudo $(MAKE) -C $(LIBERAS) install
++
++clean:
++	$(RM) $(TARGET)
++
++distclean: clean
++	$(RM) -r $(GF) $(JERASURE) $(LIBERAS)
++	sudo $(RM) $(DEPS)
++
++re: distclean all
++
++.PHONY: all clean distclean re
+diff --git a/binding.gyp b/binding.gyp
+index d7804b7..e258e15 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -2,18 +2,19 @@
+   "targets": [
+     {
+       "target_name": "node-eclib",
+-      "sources": [ "src/cpp/node-eclib.cpp"
+-      			,"src/cpp/libmain.cpp" 
+-      			,"src/cpp/asyncencode.cpp"
+-      			,"src/cpp/asyncdecode.cpp"
+-            ,"src/cpp/asyncreconstruction.cpp"
+-            ,"src/cpp/libutil.cpp" 
+-      			],
++      "sources": [
++        "src/cpp/node-eclib.cpp",
++        "src/cpp/libmain.cpp",
++        "src/cpp/asyncencode.cpp",
++        "src/cpp/asyncdecode.cpp",
++        "src/cpp/asyncreconstruction.cpp",
++        "src/cpp/libutil.cpp"
++      ],
+       "include_dirs" : [
+-          "<!(node -e \"require('nan')\")"
+-          ],
++        "/usr/local/include/liberasurecode",
++        "<!(node -e \"require('nan')\")"
++      ],
+       "libraries": [ "/usr/local/lib/liberasurecode.so" ]
+-      
+     }
+   ]
+ }
+diff --git a/package.json b/package.json
+index 084f7ec..5cde803 100644
+--- a/package.json
++++ b/package.json
+@@ -13,7 +13,7 @@
+     "url": "https://github.com/scality/node-ECLib.git"
+   },
+   "scripts": {
+-    "install": "node-gyp configure && node-gyp build"
++    "preinstall": "make"
+   },
+   "main": "index.js",
+   "dependencies": {
+@@ -22,6 +22,7 @@
+     "hexdump": "^0.1.0",
+     "hexdump-nodejs": "^0.1.0",
+     "nan": "~1.8.0",
++    "node-gyp": "",
+     "underscore": "*"
+   },
+   "gypfile": true
+
+From de2a873f8f7cbc1e2be6b593584ce6f8e100af9e Mon Sep 17 00:00:00 2001
+From: Michael Z <mzapata@student.42.fr>
+Date: Mon, 13 Jul 2015 15:17:12 +0200
+Subject: [PATCH 02/14] fix(npm): work with non-existing node_modules dir
+
+Previously, install would fail because we invoked node-gyp before
+nan would be installed.
+---
+ Makefile     | 1 -
+ package.json | 4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index fb91745..2dbe03d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -12,7 +12,6 @@ all: $(TARGET)
+ 
+ $(TARGET): $(DEPS)
+ 	sudo npm install -g node-gyp
+-	node-gyp configure && node-gyp build
+ 
+ $(GF):
+ 	git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
+diff --git a/package.json b/package.json
+index 5cde803..20e1c55 100644
+--- a/package.json
++++ b/package.json
+@@ -13,7 +13,8 @@
+     "url": "https://github.com/scality/node-ECLib.git"
+   },
+   "scripts": {
+-    "preinstall": "make"
++    "preinstall": "make",
++    "install": "node-gyp configure && node-gyp build"
+   },
+   "main": "index.js",
+   "dependencies": {
+@@ -22,7 +23,6 @@
+     "hexdump": "^0.1.0",
+     "hexdump-nodejs": "^0.1.0",
+     "nan": "~1.8.0",
+-    "node-gyp": "",
+     "underscore": "*"
+   },
+   "gypfile": true
+
+From f1dfec6f2e90b19fd1edc740975ca69d0ab60457 Mon Sep 17 00:00:00 2001
+From: Michael Z <mzapata@student.42.fr>
+Date: Mon, 13 Jul 2015 15:30:32 +0200
+Subject: [PATCH 03/14] fix(npm): makefile doesn't relink anymore
+
+Orders and dependencies are not the same thing.
+---
+ Makefile | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 2dbe03d..e0ea870 100644
+--- a/Makefile
++++ b/Makefile
+@@ -16,8 +16,8 @@ $(TARGET): $(DEPS)
+ $(GF):
+ 	git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
+ 
+-$(GF)/Makefile: $(GF)
+-	cd $^ && ./autogen.sh && ./configure
++$(GF)/Makefile: | $(GF)
++	cd $(GF) && ./autogen.sh && ./configure
+ 
+ $(LIBDIR)/libgf_complete.so: $(GF)/Makefile
+ 	$(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install
+@@ -25,8 +25,8 @@ $(LIBDIR)/libgf_complete.so: $(GF)/Makefile
+ $(JERASURE):
+ 	git clone http://lab.jerasure.org/jerasure/jerasure.git $@
+ 
+-$(JERASURE)/Makefile: $(JERASURE)
+-	cd $^ && autoreconf --force --install -I m4 && ./configure
++$(JERASURE)/Makefile: | $(JERASURE)
++	cd $(JERASURE) && autoreconf --force --install -I m4 && ./configure
+ 
+ $(LIBDIR)/libJerasure.so: $(JERASURE)/Makefile
+ 	$(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install
+@@ -34,8 +34,8 @@ $(LIBDIR)/libJerasure.so: $(JERASURE)/Makefile
+ $(LIBERAS):
+ 	git clone https://bitbucket.org/tsg-/liberasurecode.git $@
+ 
+-$(LIBERAS)/Makefile: $(LIBERAS)
+-	cd $^ && ./autogen.sh && ./configure
++$(LIBERAS)/Makefile: | $(LIBERAS)
++	cd $(LIBERAS) && ./autogen.sh && ./configure
+ 
+ $(LIBDIR)/liberasurecode.so: $(LIBERAS)/Makefile
+ 	$(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
+
+From 6e8ac0be1d1d9250bda4fbc15929563959e785c0 Mon Sep 17 00:00:00 2001
+From: Michael Z <mzapata@student.42.fr>
+Date: Mon, 13 Jul 2015 15:39:41 +0200
+Subject: [PATCH 04/14] docs(README): describe install process
+
+fix typos along the way
+---
+ README.md | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/README.md b/README.md
+index 03e4e20..2357918 100644
+--- a/README.md
++++ b/README.md
+@@ -1,33 +1,40 @@
+ # Node-ECLib
+ ===================
+-This is the node port of required library 
++This is the node port of required library
+ https://bitbucket.org/tsg-/liberasurecode
+ 
+-Here is the main libraray Web site,
++Here is the main library Website,
+ http://jerasure.org
+ 
+-Here is the python warpper of liberasurecode library
++Here is the python wrapper of liberasurecode library
+ https://bitbucket.org/kmgreen2/pyeclib
+ 
+-To understand how the liberasurecode methods works please go though this class,
++To understand how the liberasurecode methods works, please go through this
++class,
+ https://bitbucket.org/tsg-/liberasurecode/src/e46c434e36566f6f0820923a9a184e27d7b941e8/test/liberasurecode_test.c?at=master
+ 
+ ------------
+ 
+ ### Setup
+ =========
+-Please see the SETUP.md file for the setup details.
++A simple command will take care of everything for you:
++```sh
++npm install
++```
++The install process will need to install libraries and node-gyp, requiring
++sudo usage.
+ 
+ 
+ ### Prestudy
+ ===========
+-If you develop addons earlier then you probably knew it if not then it would be really helpfull to read these,
+-https://github.com/iojs/nan
++If you developed addons before, then you probably knew it. If not, it would
++be really helpful to read this:
++[nan-documentation](https://github.com/iojs/nan)
+ 
+ 
+ ### Project structure
+ ============
+-Here is the details
++Here are the details
+ 
+ ## Js Files
+ * eclib-enum.js # 
+
+From 59f9a262a7254524266e60f70b0608ab05dee0d5 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Wed, 22 Jul 2015 14:47:51 +0200
+Subject: [PATCH 05/14] binding.gyp: adds Mac OSX compatibility
+
+---
+ binding.gyp | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/binding.gyp b/binding.gyp
+index e258e15..9a5bc8a 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -14,7 +14,14 @@
+         "/usr/local/include/liberasurecode",
+         "<!(node -e \"require('nan')\")"
+       ],
+-      "libraries": [ "/usr/local/lib/liberasurecode.so" ]
++      "conditions": [
++        ['OS=="mac"', {
++          "libraries": [ "/usr/local/lib/liberasurecode.dylib" ]
++        }],
++        ['OS=="linux"', {
++          "libraries": [ "/usr/local/lib/liberasurecode.so" ]
++        }]
++      ]
+     }
+   ]
+ }
+
+From c1440f6fd16ef122c7b809e6820d91ec7438abd5 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Thu, 23 Jul 2015 09:45:58 +0200
+Subject: [PATCH 06/14] avoids rebuilding libraries if already present
+
+---
+ Makefile                        | 26 +++++++++++++++-----------
+ binding.gyp                     |  4 +++-
+ src/cpp/asyncdecode.h           |  5 ++---
+ src/cpp/asyncencode.h           |  6 ++----
+ src/cpp/asyncreconstruction.cpp |  2 --
+ src/cpp/asyncreconstruction.h   |  4 ++--
+ src/cpp/libmain.h               |  4 ++--
+ src/cpp/libutil.h               |  7 ++-----
+ 8 files changed, 28 insertions(+), 30 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index e0ea870..61e306e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -7,6 +7,11 @@ LIBDIR		= /usr/local/lib
+ LIBS		= $(addsuffix .so, $(GF) $(JERASURE) $(LIBERAS))
+ DEPS		= $(addprefix $(LIBDIR)/lib, $(LIBS))
+ 
++ifeq ($(shell uname -s),Linux)
++LIB_GUARD = ldconfig -p | grep
++else
++LIB_GUARD = false
++endif
+ 
+ all: $(TARGET)
+ 
+@@ -14,39 +19,38 @@ $(TARGET): $(DEPS)
+ 	sudo npm install -g node-gyp
+ 
+ $(GF):
+-	git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
++	$(LIB_GUARD) libgf_complete.so || git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
+ 
+ $(GF)/Makefile: | $(GF)
+-	cd $(GF) && ./autogen.sh && ./configure
++	$(LIB_GUARD) libgf_complete.so || ( cd $(GF) && ./autogen.sh && ./configure )
+ 
+ $(LIBDIR)/libgf_complete.so: $(GF)/Makefile
+-	$(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install
++	$(LIB_GUARD) libgf_complete.so || ( $(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install )
+ 
+ $(JERASURE):
+-	git clone http://lab.jerasure.org/jerasure/jerasure.git $@
++	$(LIB_GUARD) libJerasure.so || git clone http://lab.jerasure.org/jerasure/jerasure.git $@
+ 
+ $(JERASURE)/Makefile: | $(JERASURE)
+-	cd $(JERASURE) && autoreconf --force --install -I m4 && ./configure
++	$(LIB_GUARD) libJerasure.so || ( cd $(JERASURE) && autoreconf --force --install -I m4 && ./configure )
+ 
+ $(LIBDIR)/libJerasure.so: $(JERASURE)/Makefile
+-	$(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install
++	$(LIB_GUARD) libJerasure.so || ( $(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install )
+ 
+ $(LIBERAS):
+-	git clone https://bitbucket.org/tsg-/liberasurecode.git $@
++	$(LIB_GUARD) liberasurecode.so || git clone https://bitbucket.org/tsg-/liberasurecode.git $@
+ 
+ $(LIBERAS)/Makefile: | $(LIBERAS)
+-	cd $(LIBERAS) && ./autogen.sh && ./configure
++	$(LIB_GUARD) liberasurecode.so ||  ( cd $(LIBERAS) && ./autogen.sh && ./configure )
+ 
+ $(LIBDIR)/liberasurecode.so: $(LIBERAS)/Makefile
+-	$(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
+-		&& sudo $(MAKE) -C $(LIBERAS) install
++	$(LIB_GUARD) liberasurecode.so || ( $(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
++		&& sudo $(MAKE) -C $(LIBERAS) install )
+ 
+ clean:
+ 	$(RM) $(TARGET)
+ 
+ distclean: clean
+ 	$(RM) -r $(GF) $(JERASURE) $(LIBERAS)
+-	sudo $(RM) $(DEPS)
+ 
+ re: distclean all
+ 
+diff --git a/binding.gyp b/binding.gyp
+index 9a5bc8a..bda3c50 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -19,7 +19,9 @@
+           "libraries": [ "/usr/local/lib/liberasurecode.dylib" ]
+         }],
+         ['OS=="linux"', {
+-          "libraries": [ "/usr/local/lib/liberasurecode.so" ]
++          "libraries": [
++            "$(shell out=`ldconfig -p | grep liberasurecode.so` && ldconfig -p | grep liberasurecode.so | rev | cut -d' ' -f1 | rev | sed 's/[^\/]\+$$//g' | sed -n '1p' | tr -d '\\n' && echo 'liberasurecode.so' || echo /usr/local/lib/liberasurecode.so)"
++          ]
+         }]
+       ]
+     }
+diff --git a/src/cpp/asyncdecode.h b/src/cpp/asyncdecode.h
+index e3947e4..bd61201 100644
+--- a/src/cpp/asyncdecode.h
++++ b/src/cpp/asyncdecode.h
+@@ -1,7 +1,6 @@
+ #include <node.h>
+ #include <nan.h>
+-
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
++#include <liberasurecode/erasurecode.h>
++#include <liberasurecode/erasurecode_helpers.h>
+ 
+ NAN_METHOD(EclDecode);
+diff --git a/src/cpp/asyncencode.h b/src/cpp/asyncencode.h
+index 34eeda9..961e1d6 100644
+--- a/src/cpp/asyncencode.h
++++ b/src/cpp/asyncencode.h
+@@ -1,9 +1,7 @@
+ #include <node.h>
+ #include <nan.h>
+-
+-
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
++#include <liberasurecode/erasurecode.h>
++#include <liberasurecode/erasurecode_helpers.h>
+ 
+ 
+ NAN_METHOD(EclEncode);
+diff --git a/src/cpp/asyncreconstruction.cpp b/src/cpp/asyncreconstruction.cpp
+index ec40fe6..40793ec 100644
+--- a/src/cpp/asyncreconstruction.cpp
++++ b/src/cpp/asyncreconstruction.cpp
+@@ -1,7 +1,5 @@
+ #include <node.h>
+ #include <nan.h>
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
+ 
+ #include "asyncreconstruction.h"
+ 
+diff --git a/src/cpp/asyncreconstruction.h b/src/cpp/asyncreconstruction.h
+index 3334635..56f01c5 100644
+--- a/src/cpp/asyncreconstruction.h
++++ b/src/cpp/asyncreconstruction.h
+@@ -1,7 +1,7 @@
+ #include <node.h>
+ #include <nan.h>
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
++#include <liberasurecode/erasurecode.h>
++#include <liberasurecode/erasurecode_helpers.h>
+ 
+ NAN_METHOD(EclReconstructFragment);
+ 
+diff --git a/src/cpp/libmain.h b/src/cpp/libmain.h
+index fffb8a1..9bc93fe 100644
+--- a/src/cpp/libmain.h
++++ b/src/cpp/libmain.h
+@@ -1,7 +1,7 @@
+ #include <node.h>
+ #include <nan.h>
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
++#include <liberasurecode/erasurecode.h>
++#include <liberasurecode/erasurecode_helpers.h>
+ 
+ 
+ NAN_METHOD(EclCreate);
+diff --git a/src/cpp/libutil.h b/src/cpp/libutil.h
+index 63a4dbd..7d8b19b 100644
+--- a/src/cpp/libutil.h
++++ b/src/cpp/libutil.h
+@@ -1,9 +1,6 @@
+-#include <erasurecode.h>
+-#include <erasurecode_helpers.h>
+-
++#include <liberasurecode/erasurecode.h>
++#include <liberasurecode/erasurecode_helpers.h>
+ 
+ ec_args * el_create_ec_args(int k, int m, int w, int hd, ec_checksum_type_t ct);
+ ec_backend_id_t get_ec_backend_id(int id);
+ ec_checksum_type_t get_ec_checksum_type(int ct);
+-
+-
+
+From c8bada530260a000e7a3b6a5b703cd37f2e90285 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Thu, 9 Jul 2015 10:49:03 +0200
+Subject: [PATCH 07/14] fixes compilation errors
+
+---
+ node-eclib.js           |  28 +++---
+ src/cpp/asyncdecode.cpp | 155 +++++++++++++----------------
+ src/cpp/asyncencode.cpp | 213 ++++++++++++++++++----------------------
+ src/cpp/libmain.cpp     |   9 +-
+ src/cpp/libutil.cpp     |   6 +-
+ src/cpp/node-eclib.cpp  |   1 -
+ test/freetest.js        | 115 ++++++++++------------
+ test/functest.js        | 175 ++++++++++++++++++++++-----------
+ test/longtest.js        | 171 +++++++++++++++++---------------
+ test/threaded.js        |  94 +++++++++---------
+ 10 files changed, 489 insertions(+), 478 deletions(-)
+
+diff --git a/node-eclib.js b/node-eclib.js
+index ba99368..c70a699 100644
+--- a/node-eclib.js
++++ b/node-eclib.js
+@@ -9,12 +9,13 @@ var enums = require("./eclib-enum.js");
+ var __ = require('underscore');
+ 
+ function ECLib(opts){
+-	var d_options = {"bc_id":0,  //backend ID
+-			 "k":8,      //number of data fragments
+-			 "m":4,      //number of parity fragments
+-			 "w":0,      //word size, in bits
+-			 "hd":0,     //hamming distance (=m for Reed-Solomon)
+-			 "ct":0 };   //fragment checksum type
++	var d_options = {
++		"bc_id":0,  //backend ID
++		"k":8,      //number of data fragments
++		"m":4,      //number of parity fragments
++		"w":0,      //word size, in bits
++		"hd":0,     //hamming distance (=m for Reed-Solomon)
++		"ct":0 };   //fragment checksum type
+ 
+ 	this.opt = {};
+ 	__.extend(this.opt,d_options);
+@@ -38,7 +39,7 @@ function ECLib(opts){
+ }
+ 
+ ECLib.prototype = {
+-	
++
+ 	init: function(callback){
+ 		//This will be the  create method of the ECLIB
+ 		var instance_descriptor_id = -1;
+@@ -47,12 +48,13 @@ ECLib.prototype = {
+ 		if ( this.eclibUtil.validateInstanceCreateParams(o.bc_id, o.k, o.m, o.w, o.hd, o.ct)  ){
+ 
+ 			instance_descriptor_id = addon.create(o.bc_id, o.k, o.m, o.w, o.hd, o.ct);
+-			
++
+ 			if (instance_descriptor_id <=0 ){
+ 				err.errorcode =  instance_descriptor_id ;
+ 				err.message = this.eclibUtil.getErrorMessage(instance_descriptor_id);
+ 			}else {
+ 				this.ins_id =instance_descriptor_id;
++				console.log("ins id is OK:" + this.ins_id);
+ 			}
+ 
+ 		} else {
+@@ -74,7 +76,7 @@ ECLib.prototype = {
+ 	},
+ 	destroy: function(callback){
+ 
+-		var resultcode = enums.ErrorCode.EBACKENDNOTAVAIL; 
++		var resultcode = enums.ErrorCode.EBACKENDNOTAVAIL;
+ 		var err = {};
+ 
+ 		if (this.isValidInstance()){
+@@ -85,10 +87,10 @@ ECLib.prototype = {
+ 			}
+ 
+ 		} else {
+-		
++
+ 			err.errorcode = resultcode;
+ 			err.message = this.eclibUtil.getErrorMessage(resultcode);
+-		
++
+ 		}
+ 
+ 		if (!callback){
+@@ -105,7 +107,7 @@ ECLib.prototype = {
+ 	    addon.encode(this.ins_id, o.k, o.m, o_data, o_data.length, callback);
+ 	},
+ 
+-	encodev: function(n_buf,buf_array,total_size,callback){
++	encodev: function(n_buf, buf_array, total_size, callback){
+ 	    var o = this.opt;
+ 
+ 	    addon.encodev(this.ins_id, o.k, o.m, n_buf, buf_array, total_size, callback);
+@@ -118,7 +120,7 @@ ECLib.prototype = {
+ 	getFragmentMetadata: function(fragment, fragment_metadata, callback){
+ 
+ 
+-	}, 
++	},
+ 
+ 	setOptions: function(opts){
+ 		__.extend(this.opt,opts);
+diff --git a/src/cpp/asyncdecode.cpp b/src/cpp/asyncdecode.cpp
+index 841af61..4671449 100644
+--- a/src/cpp/asyncdecode.cpp
++++ b/src/cpp/asyncdecode.cpp
+@@ -5,91 +5,71 @@
+ 
+ using namespace v8;
+ 
+-//#define DPRINTF(fmt,...) do { fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
+-#define DPRINTF(fmt,...)
+-
+-struct DecodeData {
+-  //input
+-  int instance_descriptor_id;
+-  char **fragments;
+-  int n_frag;
+-  int frag_len;
+-  int force_metadata_check;
+-  //result
+-  int status;
+-  char *out_data;
+-  uint64_t out_data_len;
+-  //free
+-};
+-
+-#if 0
+-static void DecodeFree(char *out_data, void *hint) {
+-  DecodeData *data = reinterpret_cast<DecodeData*>(hint);
++class AsyncDecodeWorker : public NanAsyncWorker {
++public:
++  AsyncDecodeWorker(NanCallback *callback, int instance_descriptor_id, char **fragments, int n_frag, int frag_len, int force_metadata_check) :
++    NanAsyncWorker(callback),
++    _instance_descriptor_id(instance_descriptor_id),
++    _fragments(fragments),
++    _n_frag(n_frag),
++    _frag_len(frag_len),
++    _force_metadata_check(force_metadata_check) {
++    }
+ 
+-  DPRINTF("FREE DECODE %p\n", data);
+-  liberasurecode_decode_cleanup(data->instance_descriptor_id, data->out_data);
+-  
+-  delete data;
+-}
+-#endif
+-
+-class DecodeWorker : public NanAsyncWorker {
+- public:
+-  DecodeWorker(NanCallback *callback, DecodeData *data)
+-    : NanAsyncWorker(callback), data(data) {}
+-  ~DecodeWorker() {
+-    for (int i = 0;i < data->n_frag;i++) {
+-      delete data->fragments[i];
++  ~AsyncDecodeWorker() {
++    for (int i = 0;i < _n_frag;i++) {
++      delete _fragments[i];
+     }
+-    delete data->fragments;
+-    delete data;
++    delete _fragments;
+   }
+ 
+-  // Executed inside the worker-thread.
+-  // It is not safe to access V8, or V8 data structures
+-  // here, so everything we need for input and output
+-  // should go on `this`.
+-  void Execute () {
+-    DPRINTF("execute decode %p\n", data);
+-    data->status = liberasurecode_decode(data->instance_descriptor_id, 
+-					 data->fragments, data->n_frag, data->frag_len, 
+-					 data->force_metadata_check,
+-					 &data->out_data, &data->out_data_len);
+-    DPRINTF("execute decode done %p\n", data);
++  void Execute() {
++    _status = liberasurecode_decode(_instance_descriptor_id,
++				       _fragments, _n_frag, _frag_len,
++				       _force_metadata_check,
++				       &_out_data, &_out_data_len);
++
++    if (_status != 0) {
++      SetErrorMessage("an error occured while decoding");
++    }
+   }
+ 
+-  // Executed when the async work is complete
+-  // this function will be run inside the main event loop
+-  // so it is safe to use V8 again
+-  void HandleOKCallback () {
++  void HandleOKCallback() {
+     NanScope();
+ 
+-    DPRINTF("DECODE Callback %p\n", data);
+-
+-    if (0 == data->status) {
+-    
+     Handle<Value> argv[] = {
+-      NanNew<Number>(data->status),
+-      NanNewBufferHandle(data->out_data, data->out_data_len),//, DecodeFree, data),
+-      NanNew<Number>(data->out_data_len)
++      NanNew<Number>(_status),
++      NanNewBufferHandle(_out_data, _out_data_len),
++      NanNew<Number>(_out_data_len)
+     };
+ 
+-    liberasurecode_decode_cleanup(data->instance_descriptor_id, data->out_data);
+-    data->out_data = NULL;
+-    
++
++    liberasurecode_decode_cleanup(_instance_descriptor_id, _out_data);
++
+     callback->Call(3, argv);
+-  } else {
+-    
++  }
++
++  void HandleErrorCallback() {
++    NanScope();
++
+     Handle<Value> argv[] = {
+-      NanNew<Number>(data->status)
++      NanNew<Number>(_status)
+     };
+-    
+-     callback->Call(1, argv);
+-  }
+-  }
+ 
+- private:
+-  DecodeData *data;
++    callback->Call(1, argv);
++  }
++private:
++  // Input data.
++  int _instance_descriptor_id;
++  char **_fragments;
++  int _n_frag;
++  int _frag_len;
++  int _force_metadata_check;
++
++  // Output data.
++  int _status;
++  char *_out_data;
++  uint64_t _out_data_len;
+ };
+ 
+ NAN_METHOD(EclDecode) {
+@@ -100,23 +80,24 @@ NAN_METHOD(EclDecode) {
+     NanReturnUndefined();
+   }
+ 
+-  DecodeData *data = new DecodeData;
+-  DPRINTF("Dec data %p\n", data);
+-  
+-  data->instance_descriptor_id = args[0]->NumberValue();
+-  Local<Object>fragments_array = args[1]->ToObject();
+-  data->n_frag = args[2]->NumberValue();
+-  data->fragments = new char*[data->n_frag];
+-  data->frag_len = args[3]->NumberValue();
+-  for (int i = 0;i < data->n_frag;i++) {
+-    char *fragment = node::Buffer::Data(fragments_array->Get(i));
+-    data->fragments[i] = new char[data->frag_len];
+-    memcpy(data->fragments[i], fragment, data->frag_len);
++  int n_frag = args[2]->NumberValue();
++  int frag_len = args[3]->NumberValue();
++
++  Local<Object> fragments_array = args[1]->ToObject();
++  char **fragments = new char*[n_frag];
++  for (int i = 0; i < n_frag; i++) {
++    fragments[i] = new char[frag_len];
++    memcpy(fragments[i], node::Buffer::Data(fragments_array->Get(i)), frag_len);
+   }
+-  data->force_metadata_check = args[4]->NumberValue();
+-  
+-  NanCallback *callback = new NanCallback(args[5].As<Function>());
+-  NanAsyncQueueWorker(new DecodeWorker(callback, data));
+-    
++
++  NanAsyncQueueWorker(new AsyncDecodeWorker(
++    new NanCallback(args[5].As<Function>()),
++    args[0]->NumberValue(),
++    fragments,
++    n_frag,
++    frag_len,
++    args[4]->NumberValue()
++  ));
++
+   NanReturnUndefined();
+ }
+diff --git a/src/cpp/asyncencode.cpp b/src/cpp/asyncencode.cpp
+index 91dacc2..5725411 100644
+--- a/src/cpp/asyncencode.cpp
++++ b/src/cpp/asyncencode.cpp
+@@ -5,135 +5,112 @@
+ 
+ using namespace v8;
+ 
+-//#define DPRINTF(fmt,...) do { fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
+-#define DPRINTF(fmt,...)
+-
+-struct EncodeData {
+-  //input
+-  int instance_descriptor_id;
+-  int k;
+-  int m;
+-  char *orig_data;
+-  int orig_data_size;
+-  //result
+-  int status;
+-  char **encoded_data;
+-  char **encoded_parity;
+-  uint64_t encoded_fragment_len;
+-  //free
+-  int count;
+-};
++class AsyncEncodeWorker : public NanAsyncWorker {
++public:
++  AsyncEncodeWorker(NanCallback *callback, int instance_descriptor_id, int k, int m, char *orig_data, int orig_data_size) :
++    NanAsyncWorker(callback),
++    _instance_descriptor_id(instance_descriptor_id),
++    _k(k),
++    _m(m),
++    _orig_data(orig_data),
++    _orig_data_size(orig_data_size) {}
++
++  ~AsyncEncodeWorker() {
++    delete _orig_data;
++  }
++
++  void Execute() {
++    _status = liberasurecode_encode(_instance_descriptor_id,
++                 _orig_data, _orig_data_size,
++                 &_encoded_data,
++                 &_encoded_parity,
++                 &_encoded_fragment_len);
+ 
+-#if 0
+-static void EncodeFree(char *out_data, void *hint) {
+-    EncodeData *data = reinterpret_cast<EncodeData*>(hint);
+-    DPRINTF("FREE ENCODE TMP %d %p\n", data->count, data);
+-    data->count--;
+-
+-    if (0 == data->count) {
+-      DPRINTF("FREE ENCODE %p\n", data);
+-      liberasurecode_encode_cleanup(data->instance_descriptor_id,
+-				    data->encoded_data,
+-				    data->encoded_parity);
+-      delete data;
++    if (_status != 0) {
++      SetErrorMessage("an error occured while encoding");
+     }
+-}
+-#endif
+-
+-class EncodeWorker : public NanAsyncWorker {
+- public:
+-  EncodeWorker(NanCallback *callback, EncodeData *data)
+-    : NanAsyncWorker(callback), data(data) {}
+-  ~EncodeWorker() {
+-    delete data->orig_data;
+-    delete data;
+   }
+ 
+-  // Executed inside the worker-thread.
+-  // It is not safe to access V8, or V8 data structures
+-  // here, so everything we need for input and output
+-  // should go on `this`.
+-  void Execute () {
+-    DPRINTF("Encoding %p\n", data);
+-    data->status = liberasurecode_encode(data->instance_descriptor_id,
+-					 data->orig_data, data->orig_data_size,
+-					 &data->encoded_data, 
+-					 &data->encoded_parity, 
+-					 &data->encoded_fragment_len);
+-    DPRINTF("Encoding Done %p\n", data);
++  void HandleOKCallback() {
++    NanScope();
++
++    Handle<Array> encoded_data_array = NanNew<Array>(_k);
++    for (int i = 0; i < _k; i++) {
++      encoded_data_array->Set(i, NanNewBufferHandle(_encoded_data[i], _encoded_fragment_len));
++    }
++
++    Handle<Array> encoded_parity_array = NanNew<Array>(_m);
++    for (int i = 0; i < _m; i++) {
++      encoded_parity_array->Set(i, NanNewBufferHandle(_encoded_parity[i], _encoded_fragment_len));
++    }
++
++    liberasurecode_encode_cleanup(_instance_descriptor_id,
++          _encoded_data,
++          _encoded_parity);
++
++    Handle<Value> argv[] = {
++      NanNew<Number>(_status),
++      encoded_data_array,
++      encoded_parity_array,
++      NanNew<Number>(_encoded_fragment_len)
++    };
++
++    callback->Call(4, argv);
+   }
+ 
+-  // Executed when the async work is complete
+-  // this function will be run inside the main event loop
+-  // so it is safe to use V8 again
+-  void HandleOKCallback () {
++  void HandleErrorCallback() {
+     NanScope();
+ 
+-    if (0 == data->status) {
+-      DPRINTF("Encoding OK CB %p\n", data);
+-      data->count = data->k + data->m;
+-
+-      Handle<Array> encoded_data_array = NanNew<Array>(data->k);
+-      for (int i = 0; i < data->k;i++) {
+-	encoded_data_array->Set(i, NanNewBufferHandle(data->encoded_data[i], data->encoded_fragment_len));//, EncodeFree, data));
+-      }
+-
+-      Handle<Array> encoded_parity_array = NanNew<Array>(data->m);
+-      for (int i = 0; i < data->m;i++) {
+-	encoded_parity_array->Set(i, NanNewBufferHandle(data->encoded_parity[i], data->encoded_fragment_len));//, EncodeFree, data));
+-      }
+-
+-      Handle<Value> argv[] = {
+-	NanNew<Number>(data->status),
+-	encoded_data_array,
+-	encoded_parity_array,
+-	NanNew<Number>(data->encoded_fragment_len)
+-      };
+-
+-      liberasurecode_encode_cleanup(data->instance_descriptor_id,
+-				    data->encoded_data,
+-				    data->encoded_parity);
+-      data->encoded_data = NULL;
+-      data->encoded_parity = NULL;
+-    
+-      callback->Call(4, argv);
+-  } else {
+-    
+     Handle<Value> argv[] = {
+-      NanNew<Number>(data->status)
++      NanNew<Number>(_status)
+     };
+-    
++
+     callback->Call(1, argv);
+-    }
+   }
+ 
+- private:
+-  EncodeData *data;
++private:
++  // Input data.
++  int _instance_descriptor_id;
++  int _k;
++  int _m;
++  char *_orig_data;
++  int _orig_data_size;
++  // Output data.
++  int _status;
++  char **_encoded_data;
++  char **_encoded_parity;
++  uint64_t _encoded_fragment_len;
+ };
+ 
+-
+ NAN_METHOD(EclEncode) {
+   NanScope();
+ 
+   if (args.Length() < 6) {
+-    NanThrowTypeError("Wrong number of arguments desc_id k m buf size cb");
++    char msg[1024];
++    sprintf(msg, "Wrong number of arguments (expected 6, got %d)", args.Length());
++    NanThrowTypeError(msg);
+     NanReturnUndefined();
+   }
+ 
+-  EncodeData *data = new EncodeData;
+-  DPRINTF("Enc data %p\n", data);
+-
+-  data->instance_descriptor_id = args[0]->NumberValue();
+-  data->k = args[1]->NumberValue();
+-  data->m = args[2]->NumberValue();
+-  data->orig_data_size = args[4]->NumberValue();
++  int instance_descriptor_id = args[0]->NumberValue();
++  int k = args[1]->NumberValue();
++  int m = args[2]->NumberValue();
++  int orig_data_size = args[4]->NumberValue();
+   char *orig_data = node::Buffer::Data(args[3]);
+-  data->orig_data = new char[data->orig_data_size];
+-  memcpy(data->orig_data, orig_data, data->orig_data_size);
++  char *pass_orig_data = new char[orig_data_size];
++  memcpy(pass_orig_data, orig_data, orig_data_size);
+ 
+   NanCallback *callback = new NanCallback(args[5].As<Function>());
+ 
+-  NanAsyncQueueWorker(new EncodeWorker(callback, data));
++  NanAsyncQueueWorker(new AsyncEncodeWorker(
++    callback,
++    instance_descriptor_id,
++    k,
++    m,
++    pass_orig_data,
++    orig_data_size
++  ));
++
+   NanReturnUndefined();
+ }
+ 
+@@ -141,32 +118,38 @@ NAN_METHOD(EclEncodeV) {
+   NanScope();
+ 
+   if (args.Length() < 7) {
+-    NanThrowTypeError("Wrong number of arguments desc_id k m n_buf buf_array total_size cb");
++    char msg[1024];
++    sprintf(msg, "Wrong number of arguments (expected 7, got %d)", args.Length());
++    NanThrowTypeError(msg);
+     NanReturnUndefined();
+   }
+ 
+-  EncodeData *data = new EncodeData;
+-  DPRINTF("Enc data %p\n", data);
+-
+-  data->instance_descriptor_id = args[0]->NumberValue();
+-  data->k = args[1]->NumberValue();
+-  data->m = args[2]->NumberValue();
++  int instance_descriptor_id = args[0]->NumberValue();
++  int k = args[1]->NumberValue();
++  int m = args[2]->NumberValue();
+ 
+-  data->orig_data_size = args[5]->NumberValue();
+-  data->orig_data = new char[data->orig_data_size];
++  int orig_data_size = args[5]->NumberValue();
++  char *orig_data = new char[orig_data_size];
+ 
+   Local<Object>buf_array = args[4]->ToObject();
+   int n_buf = args[3]->NumberValue();
+   int off = 0;
+-  for (int i = 0;i < n_buf;i++) {
++  for (int i = 0; i < n_buf; i++) {
+     char *buf = node::Buffer::Data(buf_array->Get(i));
+     int buf_len = node::Buffer::Length(buf_array->Get(i));
+-    memcpy(data->orig_data + off, buf, buf_len);
++    memcpy(orig_data + off, buf, buf_len);
+     off += buf_len;
+   }
+ 
+   NanCallback *callback = new NanCallback(args[6].As<Function>());
+ 
+-  NanAsyncQueueWorker(new EncodeWorker(callback, data));
++  NanAsyncQueueWorker(new AsyncEncodeWorker(
++    callback,
++    instance_descriptor_id,
++    k,
++    m,
++    orig_data,
++    orig_data_size
++  ));
+   NanReturnUndefined();
+ }
+diff --git a/src/cpp/libmain.cpp b/src/cpp/libmain.cpp
+index 952a561..083691d 100644
+--- a/src/cpp/libmain.cpp
++++ b/src/cpp/libmain.cpp
+@@ -26,11 +26,9 @@ NAN_METHOD(EclCreate) {
+   int hd = args[4]->NumberValue();
+   int _ct = args[5]->NumberValue();
+ 
+-  //printf("id=%d k=%d m=%d w=%d hd=%d ct=%d\n", _id, k, m, w, hd, _ct);
+-
+   ec_backend_id = get_ec_backend_id(_id);
+   ct  = get_ec_checksum_type(_ct);
+-  
++
+   memset(&ec_args, 0, sizeof (ec_args));
+   ec_args.k = k;
+   ec_args.m = m;
+@@ -44,12 +42,11 @@ NAN_METHOD(EclCreate) {
+     NanThrowTypeError("Liberasurecode initialization failed");
+     NanReturnUndefined();
+   }
+-  
+-  NanReturnValue( NanNew(desc));
++
++  NanReturnValue(NanNew(desc));
+ }
+ 
+ NAN_METHOD(EclDestroy) {
+-  
+   NanScope();
+ 
+   int arg0 = args[0]->NumberValue();
+diff --git a/src/cpp/libutil.cpp b/src/cpp/libutil.cpp
+index 2c5c578..23e7b36 100644
+--- a/src/cpp/libutil.cpp
++++ b/src/cpp/libutil.cpp
+@@ -6,14 +6,14 @@ ec_args * el_create_ec_args(int k, int m, int w, int hd, ec_checksum_type_t ct){
+ 
+     ec_args *result;
+     result = (ec_args*)malloc( sizeof( ec_args ) );
+-    
++
+     if(!result){
+ 
+         result->k = k;
+         result->m = m;
+         result->w = w;
+         result->hd = hd;
+-        result->ct;
++        result->ct = ct;
+     }
+ 
+     return result;
+@@ -75,5 +75,3 @@ ec_checksum_type_t get_ec_checksum_type(int ct){
+     }
+ 
+ }
+-
+-
+diff --git a/src/cpp/node-eclib.cpp b/src/cpp/node-eclib.cpp
+index c2afe54..645e793 100644
+--- a/src/cpp/node-eclib.cpp
++++ b/src/cpp/node-eclib.cpp
+@@ -55,4 +55,3 @@ void InitAll(Handle<Object> exports) {
+ }
+ 
+ NODE_MODULE(node_eclib, InitAll)
+-
+diff --git a/test/freetest.js b/test/freetest.js
+index 32587f1..f249c30 100644
+--- a/test/freetest.js
++++ b/test/freetest.js
+@@ -9,63 +9,62 @@ var hexdump = require('hexdump-nodejs');
+ 
+ console.log("ECLib testing");
+ 
+-var done = false;
+-
+-function set_done_true() {
+-    done = true;
+-}
+-
+ function decode_result(status, out_data, out_data_length) {
+-    console.log("Decode Done status=" + status + " data_length=" + out_data_length);
+-    
+-    //console.log(hexdump(out_data));
++  console.log("Decode Done status=" + status + " data_length=" +
++    out_data_length);
+ 
+-    console.log("comparing");
+-    if (buffertools.compare(out_data, ref_buf) == 0)
+-	console.log("OK Buffers are identical");
+-    else
+-	console.log("Nok buffers differ");
++  //console.log(hexdump(out_data));
+ 
+-    setTimeout(set_done_true, 500);
++  console.log("comparing");
++  if (buffertools.compare(out_data, ref_buf) == 0)
++    console.log("OK Buffers are identical");
++  else
++    console.log("Nok buffers differ");
++
++  delete ref_buf;
++  eclib.destroy();
++  global.gc(); //requires --expose-gc
+ }
+ 
+-function encode_result(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-    console.log("Encode Done status=" + status + " fragment_length=" + encoded_fragment_length);
+-    
+-    k = eclib.opt.k;
+-    m = eclib.opt.m;
+-    
+-    x = k-1; //available data fragments
+-    y = m;   //available parity fragments
+-    
+-    var fragments = [];
+-    var i, j;
+-    j = 0;
+-    //console.log('data:');
+-    for (i = 0;i < x;i++) {
+-	//console.log(hexdump(encoded_data[i]));
+-	fragments[j++] = encoded_data[i];
+-    }
+-    //console.log('codings:');
+-    for (i = 0;i < y;i++) {
+-	//console.log(hexdump(encoded_parity[i]));
+-	fragments[j++] = encoded_parity[i];
+-    }
+-    
+-    console.log("decode");
+-    eclib.decode(fragments, x+y, encoded_fragment_length, 0, decode_result);
+-    console.log("decode started in bg");
++function encode_result(status, encoded_data, encoded_parity,
++  encoded_fragment_length) {
++  console.log("Encode Done status=" + status + " fragment_length=" +
++    encoded_fragment_length);
++
++  k = eclib.opt.k;
++  m = eclib.opt.m;
++
++  x = k - 1; //available data fragments
++  y = m; //available parity fragments
++
++  var fragments = [];
++  var i, j;
++  j = 0;
++  //console.log('data:');
++  for (i = 0; i < x; i++) {
++    //console.log(hexdump(encoded_data[i]));
++    fragments[j++] = encoded_data[i];
++  }
++  //console.log('codings:');
++  for (i = 0; i < y; i++) {
++    //console.log(hexdump(encoded_parity[i]));
++    fragments[j++] = encoded_parity[i];
++  }
++
++  console.log("decode");
++  eclib.decode(fragments, x + y, encoded_fragment_length, 0, decode_result);
++  console.log("decode started in bg");
+ }
+ 
+ function test_one() {
+ 
+-    //ref_buf = new Buffer(10000);
+-    //buffertools.fill(ref_buf, 'z');
+-    //console.log(hexdump(ref_buf));
++  //ref_buf = new Buffer(10000);
++  //buffertools.fill(ref_buf, 'z');
++  //console.log(hexdump(ref_buf));
+ 
+-    console.log("encode");
+-    eclib.encode(ref_buf, encode_result);
+-    console.log("encode started in bg");
++  console.log("encode");
++  eclib.encode(ref_buf, encode_result);
++  console.log("encode started in bg");
+ }
+ 
+ //EC_BACKEND_NULL
+@@ -76,10 +75,10 @@ function test_one() {
+ //EC_BACKEND_SHSS
+ 
+ var eclib = new ECLib({
+-    "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
+-    "k": 3,
+-    "m": 3,
+-    "hd": 3
++  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
+ });
+ 
+ eclib.init()
+@@ -91,17 +90,3 @@ eclib.init()
+ ref_buf = crypto.randomBytes(100000);
+ 
+ test_one();
+-
+-var i = 0;
+-var work = function(dosomestuff) {
+-    console.log("dosomestuff in JS "+ (i++));
+-    if (!done) {
+-        process.nextTick(work);
+-    } else {
+-	console.log("DONE");
+-	delete ref_buf;
+-	eclib.destroy();
+-	global.gc(); //requires --expose-gc
+-    }
+-}
+-work();
+diff --git a/test/functest.js b/test/functest.js
+index b7a9e9d..4d54744 100644
+--- a/test/functest.js
++++ b/test/functest.js
+@@ -10,54 +10,56 @@ var hexdump = require('hexdump-nodejs');
+ console.log("ECLib testing");
+ 
+ function test_one(name, opts) {
+-    console.log("create " + name);
+-
+-    var eclib = new ECLib(opts);
+-    
+-    eclib.init();
+-    
+-    var ref_buf = crypto.randomBytes(10000000);
+-
+-    eclib.encode(ref_buf,
+-		 function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-		     console.log(name + " Encode Done status=" + status + " fragment_length=" + encoded_fragment_length);
+-		     
+-		     k = eclib.opt.k;
+-		     m = eclib.opt.m;
+-		     
+-		     x = k-1; //available data fragments
+-		     y = m;   //available parity fragments
+-		     
+-		     var fragments = [];
+-		     var i, j;
+-		     j = 0;
+-		     //console.log('data:');
+-		     for (i = 0;i < x;i++) {
+-			 //console.log(hexdump(encoded_data[i]));
+-			 fragments[j++] = encoded_data[i];
+-		     }
+-		     //console.log('codings:');
+-		     for (i = 0;i < y;i++) {
+-			 //console.log(hexdump(encoded_parity[i]));
+-			 fragments[j++] = encoded_parity[i];
+-		     }
+-		     
+-		     eclib.decode(fragments, x+y, encoded_fragment_length, 0,
+-				  function(status, out_data, out_data_length) {
+-				      console.log(name + " Decode Done status=" + status + " data_length=" + out_data_length);
+-
+-				      //console.log(hexdump(out_data));
+-				      
+-				      if (buffertools.compare(out_data, ref_buf) == 0)
+-					  console.log(name + " OK Buffers are identical");
+-				      else
+-					  console.log(name + " Nok buffers differ");
+-				      eclib.destroy();
+-				      delete ref_buf;
+-				  }
+-				 );
+-		 }
+-		);
++  console.log("create " + name);
++
++  var eclib = new ECLib(opts);
++
++  eclib.init();
++
++  var ref_buf = crypto.randomBytes(10000000);
++
++  eclib.encode(ref_buf,
++    function(status, encoded_data, encoded_parity, encoded_fragment_length) {
++      console.log(name + " Encode Done status=" + status +
++        " fragment_length=" + encoded_fragment_length);
++
++      k = eclib.opt.k;
++      m = eclib.opt.m;
++
++      x = k - 1; //available data fragments
++      y = m; //available parity fragments
++
++      var fragments = [];
++      var i, j;
++      j = 0;
++      //console.log('data:');
++      for (i = 0; i < x; i++) {
++        //console.log(hexdump(encoded_data[i]));
++        fragments[j++] = encoded_data[i];
++      }
++      //console.log('codings:');
++      for (i = 0; i < y; i++) {
++        //console.log(hexdump(encoded_parity[i]));
++        fragments[j++] = encoded_parity[i];
++      }
++
++      eclib.decode(fragments, x + y, encoded_fragment_length, 0,
++        function(status, out_data, out_data_length) {
++          console.log(name + " Decode Done status=" + status +
++            " data_length=" + out_data_length);
++
++          //console.log(hexdump(out_data));
++
++          if (buffertools.compare(out_data, ref_buf) == 0)
++            console.log(name + " OK Buffers are identical");
++          else
++            console.log(name + " Nok buffers differ");
++          eclib.destroy();
++          delete ref_buf;
++        }
++      );
++    }
++  );
+ }
+ 
+ //console.log(hexdump(ref_buf));
+@@ -71,15 +73,68 @@ function test_one(name, opts) {
+ //EC_BACKEND_ISA_L_RS_CAUCHY
+ 
+ //test_one("null", {"bc_id": enums.BackendId["EC_BACKEND_NULL"], "k": 8, "m": 4});
+-test_one("xor", {"bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"], "k": 3, "m": 3, "hd": 3});
+-test_one("vand", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"], "k": 10, "m": 4, "w": 16, "hd": 5});
+-test_one("vand_44", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"], "k": 4, "m": 4, "w": 16, "hd": 5});
+-test_one("vand_48", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"], "k": 4, "m": 8, "w": 16, "hd": 9});
+-test_one("vand_1010", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"], "k": 10, "m": 10, "w": 16, "hd": 11});
+-test_one("cauchy", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"], "k": 10, "m": 4, "w": 4, "hd": 5});
+-test_one("cauchy_44", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"], "k": 4, "m": 4, "w": 4, "hd": 5});
+-test_one("cauchy_48", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"], "k": 4, "m": 8, "w": 8, "hd": 9});
+-test_one("cauchy_1010", {"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"], "k": 10, "m": 10, "w": 8, "hd": 11});
+-test_one("isa_l", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 4, "w": 8, "hd": 5});
+-test_one("isa_l_44", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 4, "m": 4, "w": 8, "hd": 5});
+-test_one("isa_l_1010", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 10, "w": 8, "hd": 11});
++test_one("xor", {
++  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
++});
++test_one("vand", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++  "k": 10,
++  "m": 4,
++  "w": 16,
++  "hd": 5
++});
++test_one("vand_44", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++  "k": 4,
++  "m": 4,
++  "w": 16,
++  "hd": 5
++});
++test_one("vand_48", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++  "k": 4,
++  "m": 8,
++  "w": 16,
++  "hd": 9
++});
++test_one("vand_1010", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++  "k": 10,
++  "m": 10,
++  "w": 16,
++  "hd": 11
++});
++test_one("cauchy", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++  "k": 10,
++  "m": 4,
++  "w": 4,
++  "hd": 5
++});
++test_one("cauchy_44", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++  "k": 4,
++  "m": 4,
++  "w": 4,
++  "hd": 5
++});
++test_one("cauchy_48", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++  "k": 4,
++  "m": 8,
++  "w": 8,
++  "hd": 9
++});
++test_one("cauchy_1010", {
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++  "k": 10,
++  "m": 10,
++  "w": 8,
++  "hd": 11
++});
++// test_one("isa_l", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 4, "w": 8, "hd": 5});
++// test_one("isa_l_44", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 4, "m": 4, "w": 8, "hd": 5});
++// test_one("isa_l_1010", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 10, "w": 8, "hd": 11});
+diff --git a/test/longtest.js b/test/longtest.js
+index da88fe6..52f4e8d 100644
+--- a/test/longtest.js
++++ b/test/longtest.js
+@@ -12,96 +12,105 @@ console.log("ECLib testing");
+ var COUNT = 100; //per batch
+ var N_BATCHES = 10;
+ 
+-var eclib = new ECLib({"bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"], "k": 10, "m": 4, "w": 4, "hd": 5});
++var eclib = new ECLib({
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++  "k": 10,
++  "m": 4,
++  "w": 4,
++  "hd": 5
++});
+ 
+ eclib.init();
+ 
+ function do_it() {
+-    
+-    var do_it_count = 0;
+-    
+-    function batch() {
+-	
+-	var batch_count = 0;
+-	
+-	function test_one(num) {
+-	    console.log("create " + num);
+-	    
+-	    var ref_buf = new Buffer(1000000);
+-	    buffertools.fill(ref_buf, 'z');    
+-	    //var ref_buf = crypto.randomBytes(1000000);
+-	    
+-	    eclib.encode(ref_buf,
+-			 function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-			     console.log(num + " Encode Done status=" + status + " fragment_length=" + encoded_fragment_length);
+-			     
+-			     k = eclib.opt.k;
+-			     m = eclib.opt.m;
+-			     
+-			     x = k-1; //available data fragments
+-			     y = m;   //available parity fragments
+-			     
+-			     var fragments = [];
+-			     var i, j;
+-			     j = 0;
+-			     //console.log('data:');
+-			     for (i = 0;i < x;i++) {
+-				 //console.log(hexdump(encoded_data[i]));
+-				 fragments[j++] = encoded_data[i];
+-			     }
+-			     //console.log('codings:');
+-			     for (i = 0;i < y;i++) {
+-				 //console.log(hexdump(encoded_parity[i]));
+-				 fragments[j++] = encoded_parity[i];
+-			     }
+-			     
+-			     eclib.decode(fragments, x+y, encoded_fragment_length, 0,
+-					  function(status, out_data, out_data_length) {
+-					      console.log(num + " Decode Done status=" + status + " data_length=" + out_data_length);
+-					      
+-					      //console.log(hexdump(out_data));
+-					      
+-					      if (buffertools.compare(out_data, ref_buf) == 0)
+-						  console.log(num + " OK Buffers are identical");
+-					      else
+-						  console.log(num + " Nok buffers differ");
+-					      
+-					      batch_count++;
+-					  }
+-					 );
+-			 }
+-			);
+-	}
+-	
+-	var i = 0;
+-	for (i = 0;i < COUNT;i++) {
+-	    test_one(i);
+-	}
+-	
+-	var i = 0;
+-	var work = function(dosomestuff) {
+-	    if (batch_count < COUNT) {
+-		//process.nextTick(work);
+-		setImmediate(work);
+-	    } else {
+-		console.log("BATCH DONE " + batch_count);
+-		do_it_count++;
+-		batch();
+-	    }
+-	}
+-	work();
++
++  var do_it_count = 0;
++
++  function batch() {
++
++    var batch_count = 0;
++
++    function test_one(num) {
++      console.log("create " + num);
++
++      var ref_buf = new Buffer(1000000);
++      buffertools.fill(ref_buf, 'z');
++      //var ref_buf = crypto.randomBytes(1000000);
++
++      eclib.encode(ref_buf,
++        function(status, encoded_data, encoded_parity,
++          encoded_fragment_length) {
++          console.log(num + " Encode Done status=" + status +
++            " fragment_length=" + encoded_fragment_length);
++
++          k = eclib.opt.k;
++          m = eclib.opt.m;
++
++          x = k - 1; //available data fragments
++          y = m; //available parity fragments
++
++          var fragments = [];
++          var i, j;
++          j = 0;
++          //console.log('data:');
++          for (i = 0; i < x; i++) {
++            //console.log(hexdump(encoded_data[i]));
++            fragments[j++] = encoded_data[i];
++          }
++          //console.log('codings:');
++          for (i = 0; i < y; i++) {
++            //console.log(hexdump(encoded_parity[i]));
++            fragments[j++] = encoded_parity[i];
++          }
++
++          eclib.decode(fragments, x + y, encoded_fragment_length, 0,
++            function(status, out_data, out_data_length) {
++              console.log(num + " Decode Done status=" + status +
++                " data_length=" + out_data_length);
++
++              //console.log(hexdump(out_data));
++
++              if (buffertools.compare(out_data, ref_buf) == 0)
++                console.log(num + " OK Buffers are identical");
++              else
++                console.log(num + " Nok buffers differ");
++
++              batch_count++;
++            }
++          );
++        }
++      );
++    }
++
++    var i = 0;
++    for (i = 0; i < COUNT; i++) {
++      test_one(i);
++    }
++
++    var i = 0;
++    var work = function(dosomestuff) {
++      if (batch_count < COUNT) {
++        //process.nextTick(work);
++        setImmediate(work);
++      } else {
++        console.log("BATCH DONE " + batch_count);
++        do_it_count++;
++        batch();
++      }
+     }
++    work();
++  }
+ 
+-    var work2 = function(dosomestuff2) {
+-	if (do_it_count < N_BATCHES) {
+-	    process.nextTick(work2);
+-	} else {
+-	    console.log("ALL BATCHES DONE");
+-	}
++  var work2 = function(dosomestuff2) {
++      if (do_it_count < N_BATCHES) {
++        process.nextTick(work2);
++      } else {
++        console.log("ALL BATCHES DONE");
++      }
+     }
+     //work2();
+ 
+-    batch();
++  batch();
+ }
+ 
+ do_it();
+diff --git a/test/threaded.js b/test/threaded.js
+index c48be9e..b3647e0 100644
+--- a/test/threaded.js
++++ b/test/threaded.js
+@@ -10,53 +10,54 @@ var hexdump = require('hexdump-nodejs');
+ console.log("ECLib testing");
+ 
+ function test_one() {
+-    eclib.encode(ref_buf,
+-		 function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-		     console.log("Encode Done status=" + status + " fragment_length=" + encoded_fragment_length);
+-		     
+-		     k = eclib.opt.k;
+-		     m = eclib.opt.m;
+-		     
+-		     x = k-1; //available data fragments
+-		     y = m;   //available parity fragments
+-		     
+-		     var fragments = [];
+-		     var i, j;
+-		     j = 0;
+-		     //console.log('data:');
+-		     for (i = 0;i < x;i++) {
+-			 //console.log(hexdump(encoded_data[i]));
+-			 fragments[j++] = encoded_data[i];
+-		     }
+-		     //console.log('codings:');
+-		     for (i = 0;i < y;i++) {
+-			 //console.log(hexdump(encoded_parity[i]));
+-			 fragments[j++] = encoded_parity[i];
+-		     }
+-		     
+-			 console.log("Calling decode");
+-		     eclib.decode(fragments, x+y, encoded_fragment_length, 0,
+-				  function(status, out_data, out_data_length) {
+-				      console.log("Decode Done status=" + status + " data_length=" + out_data_length);
+-
+-				      //console.log(hexdump(out_data));
+-				      
+-				      if (buffertools.compare(out_data, ref_buf) == 0)
+-					  console.log("OK Buffers are identical");
+-				      else
+-					  console.log("Nok buffers differ");
+-				  }
+-				 );
+-		     console.log("Right after decode called");
+-		 }
+-		);
++  eclib.encode(ref_buf,
++    function(status, encoded_data, encoded_parity, encoded_fragment_length) {
++      console.log("Encode Done status=" + status + " fragment_length=" +
++        encoded_fragment_length);
++
++      k = eclib.opt.k;
++      m = eclib.opt.m;
++
++      x = k - 1; //available data fragments
++      y = m; //available parity fragments
++
++      var fragments = [];
++      var i, j;
++      j = 0;
++      //console.log('data:');
++      for (i = 0; i < x; i++) {
++        //console.log(hexdump(encoded_data[i]));
++        fragments[j++] = encoded_data[i];
++      }
++      //console.log('codings:');
++      for (i = 0; i < y; i++) {
++        //console.log(hexdump(encoded_parity[i]));
++        fragments[j++] = encoded_parity[i];
++      }
++
++      eclib.decode(fragments, x + y, encoded_fragment_length, 0,
++        function(status, out_data, out_data_length) {
++          console.log("Decode Done status=" + status + " data_length=" +
++            out_data_length);
++
++          //console.log(hexdump(out_data));
++
++          if (buffertools.compare(out_data, ref_buf) == 0)
++            console.log("OK Buffers are identical");
++          else
++            console.log("Nok buffers differ");
++        }
++      );
++      console.log("Right after decode called");
++    }
++  );
+ }
+ 
+ var eclib = new ECLib({
+-    "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
+-    "k": 3,
+-    "m": 3,
+-    "hd": 3
++  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
+ });
+ 
+ eclib.init();
+@@ -67,8 +68,9 @@ buffertools.fill(ref_buf, 'z');
+ 
+ //console.log(hexdump(ref_buf));
+ 
+-console.log("starting");    
+-test_one();  
++console.log("starting");
++test_one();
++test_one();
+ test_one();
+ 
+ //eclib.destroy();
+
+From d367e18670780681caa1d180cdecb9b9a4675479 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Fri, 10 Jul 2015 11:31:21 +0200
+Subject: [PATCH 08/14] adds header include protection;
+
+---
+ src/cpp/asyncdecode.h         | 6 ++++++
+ src/cpp/asyncencode.h         | 7 ++++++-
+ src/cpp/asyncreconstruction.h | 5 +++++
+ src/cpp/libutil.h             | 6 ++++++
+ src/cpp/linmain.h             | 5 +++++
+ 5 files changed, 28 insertions(+), 1 deletion(-)
+ create mode 100644 src/cpp/linmain.h
+
+diff --git a/src/cpp/asyncdecode.h b/src/cpp/asyncdecode.h
+index bd61201..e938847 100644
+--- a/src/cpp/asyncdecode.h
++++ b/src/cpp/asyncdecode.h
+@@ -1,6 +1,12 @@
++#ifndef SCALITY_EC_ASYNC_DECODE_H
++
++#define SCALITY_EC_ASYNC_DECODE_H
++
+ #include <node.h>
+ #include <nan.h>
+ #include <liberasurecode/erasurecode.h>
+ #include <liberasurecode/erasurecode_helpers.h>
+ 
+ NAN_METHOD(EclDecode);
++
++#endif
+diff --git a/src/cpp/asyncencode.h b/src/cpp/asyncencode.h
+index 961e1d6..ca71023 100644
+--- a/src/cpp/asyncencode.h
++++ b/src/cpp/asyncencode.h
+@@ -1,8 +1,13 @@
++#ifndef SCALITY_EC_ASYNC_ENCODE_H
++
++#define SCALITY_EC_ASYNC_ENCODE_H
++
+ #include <node.h>
+ #include <nan.h>
+ #include <liberasurecode/erasurecode.h>
+ #include <liberasurecode/erasurecode_helpers.h>
+ 
+-
+ NAN_METHOD(EclEncode);
+ NAN_METHOD(EclEncodeV);
++
++#endif
+diff --git a/src/cpp/asyncreconstruction.h b/src/cpp/asyncreconstruction.h
+index 56f01c5..c186a88 100644
+--- a/src/cpp/asyncreconstruction.h
++++ b/src/cpp/asyncreconstruction.h
+@@ -1,3 +1,7 @@
++#ifndef SCALITY_EC_ASYNC_RECONSTRUCTION_H
++
++#define SCALITY_EC_ASYNC_RECONSTRUCTION_H
++
+ #include <node.h>
+ #include <nan.h>
+ #include <liberasurecode/erasurecode.h>
+@@ -5,3 +9,4 @@
+ 
+ NAN_METHOD(EclReconstructFragment);
+ 
++#endif
+diff --git a/src/cpp/libutil.h b/src/cpp/libutil.h
+index 7d8b19b..cbda10a 100644
+--- a/src/cpp/libutil.h
++++ b/src/cpp/libutil.h
+@@ -1,6 +1,12 @@
++#ifndef SCALITY_EC_LIBUTIL_H
++
++#define SCALITY_EC_LIBUTIL_H
++
+ #include <liberasurecode/erasurecode.h>
+ #include <liberasurecode/erasurecode_helpers.h>
+ 
+ ec_args * el_create_ec_args(int k, int m, int w, int hd, ec_checksum_type_t ct);
+ ec_backend_id_t get_ec_backend_id(int id);
+ ec_checksum_type_t get_ec_checksum_type(int ct);
++
++#endif
+diff --git a/src/cpp/linmain.h b/src/cpp/linmain.h
+new file mode 100644
+index 0000000..bdd73e7
+--- /dev/null
++++ b/src/cpp/linmain.h
+@@ -0,0 +1,5 @@
++#ifndef SCALITY_EC_LIBMAIN_H
++
++#define SCALITY_EC_LIBMAIN_H
++
++#endif
+
+From 7d6a57e10c4dfff39df33e1b5deeb5daaeae8c60 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Fri, 10 Jul 2015 17:13:50 +0200
+Subject: [PATCH 09/14] adds comments
+
+---
+ eclib-enum.js    |  52 ++++++-------
+ eclib-util.js    |  83 +++++++++++----------
+ node-eclib.js    |  76 +++++++++----------
+ test/freetest.js |  51 +++----------
+ test/functest.js |  34 +++------
+ test/longtest.js | 190 +++++++++++++++++++++++------------------------
+ test/threaded.js |  20 ++---
+ 7 files changed, 225 insertions(+), 281 deletions(-)
+
+diff --git a/eclib-enum.js b/eclib-enum.js
+index 56d09a7..74d6741 100644
+--- a/eclib-enum.js
++++ b/eclib-enum.js
+@@ -1,32 +1,32 @@
+ // This class will be act as  the enum container for the node-eclib module
+ 
+ module.exports = {
+-    BackendId: {
+-	    "EC_BACKEND_NULL" 					: 0,
+-	    "EC_BACKEND_JERASURE_RS_VAND" 		: 1,
+-	    "EC_BACKEND_JERASURE_RS_CAUCHY" 	: 2,
+-	    "EC_BACKEND_FLAT_XOR_HD" 			: 3,
+-	    "EC_BACKEND_ISA_L_RS_VAND" 			: 4,
+-	    "EC_BACKEND_SHSS" 					: 5,
+-	    "EC_BACKENDS_MAX" 					: 99
+-    },
++  BackendId: {
++    "EC_BACKEND_NULL": 0,
++    "EC_BACKEND_JERASURE_RS_VAND": 1,
++    "EC_BACKEND_JERASURE_RS_CAUCHY": 2,
++    "EC_BACKEND_FLAT_XOR_HD": 3,
++    "EC_BACKEND_ISA_L_RS_VAND": 4,
++    "EC_BACKEND_SHSS": 5,
++    "EC_BACKENDS_MAX": 99
++  },
+ 
+-    ChecksumType: {
+-    	"CHKSUM_NONE"		: 1,
+-	    "CHKSUM_CRC32" 		: 2,
+-	    "CHKSUM_MD5" 		: 3,
+-	    "CHKSUM_TYPES_MAX" 	: 99
+-    },
++  ChecksumType: {
++    "CHKSUM_NONE": 1,
++    "CHKSUM_CRC32": 2,
++    "CHKSUM_MD5": 3,
++    "CHKSUM_TYPES_MAX": 99
++  },
+ 
+-    ErrorCode : {
+-    	"EBACKENDNOTSUPP" 		: 200,
+-	    "EECMETHODNOTIMPL" 		: 201,
+-	    "EBACKENDINITERR" 		: 202,
+-	    "EBACKENDINUSE" 		: 203,
+-	    "EBACKENDNOTAVAIL" 		: 204,
+-	    "EBADCHKSUM" 			: 205,
+-	    "EINVALIDPARAMS" 		: 206,
+-	    "EBADHEADER" 			: 207,
+-	    "EINSUFFFRAGS" 			: 208
+-    }
++  ErrorCode: {
++    "EBACKENDNOTSUPP": 200,
++    "EECMETHODNOTIMPL": 201,
++    "EBACKENDINITERR": 202,
++    "EBACKENDINUSE": 203,
++    "EBACKENDNOTAVAIL": 204,
++    "EBADCHKSUM": 205,
++    "EINVALIDPARAMS": 206,
++    "EBADHEADER": 207,
++    "EINSUFFFRAGS": 208
++  }
+ };
+diff --git a/eclib-util.js b/eclib-util.js
+index bae2780..8189f9f 100644
+--- a/eclib-util.js
++++ b/eclib-util.js
+@@ -1,89 +1,91 @@
+ // All the util method will go here.
+-// Lets see how many methods do we need add here, might be in the future we goona need 
++// Lets see how many methods do we need add here, might be in the future we goona need
+ //		another validator util
+ 
+ var enums = require("./eclib-enum.js");
+ 
+-function ECLibUtil(){
++function ECLibUtil() {
+ 
+-	this.isInt = function(n){
++	this.isInt = function(n) {
+ 		return typeof n === 'number' && n % 1 == 0;
+ 	}
+ }
+ 
+-ECLibUtil.prototype.getErrorMessage = function(errorcode){
++ECLibUtil.prototype.getErrorMessage = function(errorcode) {
+ 
+ 	var errornumber = enums.ErrorCode;
+- 	var message = null;
++	var message = null;
+ 
+-	switch(errorcode){
+-		case -errornumber.EBACKENDNOTSUPP :
+-			message = "Backend not supported"; 
++	switch (errorcode) {
++		case -errornumber.EBACKENDNOTSUPP:
++			message = "Backend not supported";
+ 			break;
+-		
+-		case -errornumber.EECMETHODNOTIMPL :
+-			message = "No method implemented"; 
++
++		case -errornumber.EECMETHODNOTIMPL:
++			message = "No method implemented";
+ 			break;
+-		
+-		case -errornumber.EBACKENDINITERR :
+-			message = "Backend instance is terminated"; 
++
++		case -errornumber.EBACKENDINITERR:
++			message = "Backend instance is terminated";
+ 			break;
+-		
+-		case -errornumber.EBACKENDINUSE :
+-			message = "Backend instance is in use"; 
++
++		case -errornumber.EBACKENDINUSE:
++			message = "Backend instance is in use";
+ 			break;
+-		
+-		case -errornumber.EBACKENDNOTAVAIL :
+-			message = "Backend instance not found"; 
++
++		case -errornumber.EBACKENDNOTAVAIL:
++			message = "Backend instance not found";
+ 			break;
+-		
+-		case -errornumber.EBADCHKSUM :
+-			message = "Fragment integrity check failed"; 
++
++		case -errornumber.EBADCHKSUM:
++			message = "Fragment integrity check failed";
+ 			break;
+-		
+-		case -errornumber.EINVALIDPARAMS :
+-			message = "Invalid arguments"; 
++
++		case -errornumber.EINVALIDPARAMS:
++			message = "Invalid arguments";
+ 			break;
+-		
+-		case -errornumber.EBADHEADER :
+-			message =  "Fragment integrity check failed"; 
++
++		case -errornumber.EBADHEADER:
++			message = "Fragment integrity check failed";
+ 			break;
+-		
+-		case -errornumber.EINSUFFFRAGS :
+-			message = "Insufficient number of fragments"; 
++
++		case -errornumber.EINSUFFFRAGS:
++			message = "Insufficient number of fragments";
+ 			break;
+-			
++
+ 		default:
+ 			message = "Unknown error";
+ 			break;
+ 	}
+ 
+ 	return message;
+-}; 
++};
+ 
+-ECLibUtil.prototype.validateInstanceCreateParams = function( ec_backend_id, k, m, w, hd, ct){
++ECLibUtil.prototype.validateInstanceCreateParams = function(ec_backend_id, k, m,
++	w, hd, ct) {
+ 
+ 	var retvalue = true;
+ 	var argslength = arguments.length;
+ 
+ 	retvalue = (argslength == 6);
+ 
+-	while ( retvalue && (argslength> 0) ){
+-		retvalue = retvalue && this.isInt( arguments[argslength - 1]);
++	while (retvalue && (argslength > 0)) {
++		retvalue = retvalue && this.isInt(arguments[argslength - 1]);
+ 		argslength--;
+ 	}
+ 
+ 	return retvalue;
+ };
+ 
+-ECLibUtil.prototype.validateEncodeParams = function( ec_id, orig_data, deta_length,callback ){
++ECLibUtil.prototype.validateEncodeParams = function(ec_id, orig_data,
++	deta_length, callback) {
+ 
+ 	var retvalue = true;
+ 	var argslength = arguments.length;
+ 
+ 	retvalue = (argslength == 4);
+-	retvalue = retvalue && this.isInt( arguments[0]);
+-	retvalue = retvalue && this.isInt( arguments[2]);
++	retvalue = retvalue && this.isInt(arguments[0]);
++	retvalue = retvalue && this.isInt(arguments[2]);
+ 	retvalue = retvalue && (orig_data !== undefined) && Buffer.isBuffer(orig_data);
+ 	// Will check whether the callback is a method or not
+ 	//retvalue = retvalue && Buffer.isBuffer(orig_data);
+@@ -94,5 +96,4 @@ ECLibUtil.prototype.validateEncodeParams = function( ec_id, orig_data, deta_leng
+ 
+ 
+ 
+-
+ module.exports = ECLibUtil;
+diff --git a/node-eclib.js b/node-eclib.js
+index c70a699..d155a20 100644
+--- a/node-eclib.js
++++ b/node-eclib.js
+@@ -1,87 +1,83 @@
+-// Basic structures of the ECLib library
+-
+-// We will not require anything right now.
+-//
+-
+ var addon = require('bindings')('Release/node-eclib.node')
+ var ECLibUtil = require("./eclib-util.js");
+ var enums = require("./eclib-enum.js");
+ var __ = require('underscore');
+ 
+-function ECLib(opts){
++function ECLib(opts) {
+ 	var d_options = {
+-		"bc_id":0,  //backend ID
+-		"k":8,      //number of data fragments
+-		"m":4,      //number of parity fragments
+-		"w":0,      //word size, in bits
+-		"hd":0,     //hamming distance (=m for Reed-Solomon)
+-		"ct":0 };   //fragment checksum type
++		"bc_id": 0, //backend ID
++		"k": 8, //number of data fragments
++		"m": 4, //number of parity fragments
++		"w": 0, //word size, in bits
++		"hd": 0, //hamming distance (=m for Reed-Solomon)
++		"ct": 0
++	}; //fragment checksum type
+ 
+ 	this.opt = {};
+-	__.extend(this.opt,d_options);
++	__.extend(this.opt, d_options);
+ 
+-	if (__.size(opts) > 0){
+-		__.extend(this.opt, opts );
++	if (__.size(opts) > 0) {
++		__.extend(this.opt, opts);
+ 	}
+ 
+ 	this.ins_id = null;
+ 	this.eclibUtil = new ECLibUtil();
+-	this.isValidInstance = function(){
++	this.isValidInstance = function() {
+ 
+-		return ( __.isUndefined(this.ins_id));
++		return (__.isUndefined(this.ins_id));
+ 
+ 	};
+ 
+-	this.resetOptions = function(){
++	this.resetOptions = function() {
+ 		this.opt = null;
+-		__.extend(this.opt,d_options);
++		__.extend(this.opt, d_options);
+ 	};
+ }
+ 
+ ECLib.prototype = {
+ 
+-	init: function(callback){
++	init: function(callback) {
+ 		//This will be the  create method of the ECLIB
+ 		var instance_descriptor_id = -1;
+ 		var err = {};
+-		var o= this.opt;
+-		if ( this.eclibUtil.validateInstanceCreateParams(o.bc_id, o.k, o.m, o.w, o.hd, o.ct)  ){
++		var o = this.opt;
++		if (this.eclibUtil.validateInstanceCreateParams(o.bc_id, o.k, o.m, o.w, o.hd,
++				o.ct)) {
+ 
+ 			instance_descriptor_id = addon.create(o.bc_id, o.k, o.m, o.w, o.hd, o.ct);
+ 
+-			if (instance_descriptor_id <=0 ){
+-				err.errorcode =  instance_descriptor_id ;
++			if (instance_descriptor_id <= 0) {
++				err.errorcode = instance_descriptor_id;
+ 				err.message = this.eclibUtil.getErrorMessage(instance_descriptor_id);
+-			}else {
+-				this.ins_id =instance_descriptor_id;
+-				console.log("ins id is OK:" + this.ins_id);
++			} else {
++				this.ins_id = instance_descriptor_id;
+ 			}
+ 
+ 		} else {
+-			err.errorcode =  enums.ErrorCode.EINVALIDPARAMS ;
++			err.errorcode = enums.ErrorCode.EINVALIDPARAMS;
+ 			err.message = this.eclibUtil.getErrorMessage(err.errorcode);
+-			instance_descriptor_id = err.errorcode ;
++			instance_descriptor_id = err.errorcode;
+ 		}
+ 
+ 
+-		if (!callback){
++		if (!callback) {
+ 
+ 			return instance_descriptor_id;
+ 		}
+ 
+-		callback.call(this,instance_descriptor_id, err);
++		callback.call(this, instance_descriptor_id, err);
+ 
+ 
+ 
+ 	},
+-	destroy: function(callback){
++	destroy: function(callback) {
+ 
+ 		var resultcode = enums.ErrorCode.EBACKENDNOTAVAIL;
+ 		var err = {};
+ 
+-		if (this.isValidInstance()){
++		if (this.isValidInstance()) {
+ 			resultcode = addon.destroy(this.ins_id);
+-			if ( resultcode !== 0){
++			if (resultcode !== 0) {
+ 				err.errorcode = resultcode;
+ 				err.message = this.eclibUtil.getErrorMessage(resultcode);
+ 			}
+@@ -93,18 +89,18 @@ ECLib.prototype = {
+ 
+ 		}
+ 
+-		if (!callback){
++		if (!callback) {
+ 			return resultcode;
+ 		}
+ 
+-		callback.call(this,resultcode,err);
++		callback.call(this, resultcode, err);
+ 
+ 	},
+ 
+-	encode: function(o_data,callback){
+-	    var o = this.opt;
++	encode: function(o_data, callback) {
++		var o = this.opt;
+ 
+-	    addon.encode(this.ins_id, o.k, o.m, o_data, o_data.length, callback);
++		addon.encode(this.ins_id, o.k, o.m, o_data, o_data.length, callback);
+ 	},
+ 
+ 	encodev: function(n_buf, buf_array, total_size, callback){
+@@ -117,7 +113,7 @@ ECLib.prototype = {
+ 	    addon.decode(this.ins_id, d_data, n_frags, frag_len, force_metadata_check, callback);
+ 	},
+ 
+-	getFragmentMetadata: function(fragment, fragment_metadata, callback){
++	getFragmentMetadata: function(fragment, fragment_metadata, callback) {
+ 
+ 
+ 	},
+diff --git a/test/freetest.js b/test/freetest.js
+index f249c30..720b199 100644
+--- a/test/freetest.js
++++ b/test/freetest.js
+@@ -1,70 +1,49 @@
+ // test that liberasure code buffers are cleaned up
+ 
++'use strict';
++
+ var ECLib = require('../node-eclib.js');
+ var enums = require('../eclib-enum.js');
+ var ECLibUtil = require('../eclib-util.js');
+ var buffertools = require("buffertools");
+ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
+-
+-console.log("ECLib testing");
++var assert = require('assert');
+ 
+ function decode_result(status, out_data, out_data_length) {
+-  console.log("Decode Done status=" + status + " data_length=" +
+-    out_data_length);
+-
+-  //console.log(hexdump(out_data));
+-
+-  console.log("comparing");
+-  if (buffertools.compare(out_data, ref_buf) == 0)
+-    console.log("OK Buffers are identical");
+-  else
+-    console.log("Nok buffers differ");
++  // Buffers must be equal, or else something bad happened.
++  assert.equal(buffertools.compare(out_data, ref_buf), 0);
+ 
+-  delete ref_buf;
++  // Free memory used by ECLib.
+   eclib.destroy();
+-  global.gc(); //requires --expose-gc
+ }
+ 
+ function encode_result(status, encoded_data, encoded_parity,
+   encoded_fragment_length) {
+-  console.log("Encode Done status=" + status + " fragment_length=" +
+-    encoded_fragment_length);
+ 
+-  k = eclib.opt.k;
+-  m = eclib.opt.m;
++  var k = eclib.opt.k;
++  var m = eclib.opt.m;
+ 
+-  x = k - 1; //available data fragments
+-  y = m; //available parity fragments
++  var x = k - 1; //available data fragments
++  var y = m; //available parity fragments
+ 
+   var fragments = [];
+   var i, j;
+   j = 0;
+-  //console.log('data:');
+   for (i = 0; i < x; i++) {
+-    //console.log(hexdump(encoded_data[i]));
+     fragments[j++] = encoded_data[i];
+   }
+   //console.log('codings:');
+   for (i = 0; i < y; i++) {
+-    //console.log(hexdump(encoded_parity[i]));
+     fragments[j++] = encoded_parity[i];
+   }
+ 
+-  console.log("decode");
+   eclib.decode(fragments, x + y, encoded_fragment_length, 0, decode_result);
+-  console.log("decode started in bg");
+ }
+ 
+ function test_one() {
+-
+-  //ref_buf = new Buffer(10000);
+-  //buffertools.fill(ref_buf, 'z');
+-  //console.log(hexdump(ref_buf));
+-
+-  console.log("encode");
++  eclib.init();
+   eclib.encode(ref_buf, encode_result);
+-  console.log("encode started in bg");
+ }
+ 
+ //EC_BACKEND_NULL
+@@ -81,12 +60,6 @@ var eclib = new ECLib({
+   "hd": 3
+ });
+ 
+-eclib.init()
+-
+-//eclib.testpad();
+-
+-//ref_buf = new Buffer(1000000000);
+-//buffertools.fill(ref_buf, 'z');
+-ref_buf = crypto.randomBytes(100000);
++var ref_buf = crypto.randomBytes(100000);
+ 
+ test_one();
+diff --git a/test/functest.js b/test/functest.js
+index 4d54744..7199dfd 100644
+--- a/test/functest.js
++++ b/test/functest.js
+@@ -1,17 +1,16 @@
+ // launch multiple encodes/decodes in parallel
+ 
++'use strict';
++
+ var ECLib = require('../node-eclib.js');
+ var enums = require('../eclib-enum.js');
+ var ECLibUtil = require('../eclib-util.js');
+ var buffertools = require("buffertools");
+ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
+-
+-console.log("ECLib testing");
++var assert = require('assert');
+ 
+ function test_one(name, opts) {
+-  console.log("create " + name);
+-
+   var eclib = new ECLib(opts);
+ 
+   eclib.init();
+@@ -20,50 +19,35 @@ function test_one(name, opts) {
+ 
+   eclib.encode(ref_buf,
+     function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-      console.log(name + " Encode Done status=" + status +
+-        " fragment_length=" + encoded_fragment_length);
+ 
+-      k = eclib.opt.k;
+-      m = eclib.opt.m;
++      var k = eclib.opt.k;
++      var m = eclib.opt.m;
+ 
+-      x = k - 1; //available data fragments
+-      y = m; //available parity fragments
++      var x = k - 1; //available data fragments
++      var y = m; //available parity fragments
+ 
+       var fragments = [];
+       var i, j;
+       j = 0;
+-      //console.log('data:');
+       for (i = 0; i < x; i++) {
+-        //console.log(hexdump(encoded_data[i]));
+         fragments[j++] = encoded_data[i];
+       }
+-      //console.log('codings:');
+       for (i = 0; i < y; i++) {
+-        //console.log(hexdump(encoded_parity[i]));
+         fragments[j++] = encoded_parity[i];
+       }
+ 
+       eclib.decode(fragments, x + y, encoded_fragment_length, 0,
+         function(status, out_data, out_data_length) {
+-          console.log(name + " Decode Done status=" + status +
+-            " data_length=" + out_data_length);
++          // If buffers are not equal, something bad must have happened.
++          assert.equal(buffertools.compare(out_data, ref_buf), 0);
+ 
+-          //console.log(hexdump(out_data));
+-
+-          if (buffertools.compare(out_data, ref_buf) == 0)
+-            console.log(name + " OK Buffers are identical");
+-          else
+-            console.log(name + " Nok buffers differ");
+           eclib.destroy();
+-          delete ref_buf;
+         }
+       );
+     }
+   );
+ }
+ 
+-//console.log(hexdump(ref_buf));
+-
+ //EC_BACKEND_NULL
+ //EC_BACKEND_JERASURE_RS_VAND
+ //EC_BACKEND_JERASURE_RS_CAUCHY
+diff --git a/test/longtest.js b/test/longtest.js
+index 52f4e8d..b2d61c6 100644
+--- a/test/longtest.js
++++ b/test/longtest.js
+@@ -1,4 +1,14 @@
+-// long test
++// Long test, to check for memleaks.
++//
++// This check runs a series of batches of encode/decode steps.
++//
++// The reason we run encode/decode steps in batches is because each step
++// allocates a large buffer. If we ran all steps at the same time, we'd have
++// to allocate all buffers up front, essentially using all the computer's RAM.
++//
++// By batching, we always have sufficient RAM (~1Gb), even on slower computers.
++
++'use strict';
+ 
+ var ECLib = require('../node-eclib.js');
+ var enums = require('../eclib-enum.js');
+@@ -6,11 +16,85 @@ var ECLibUtil = require('../eclib-util.js');
+ var buffertools = require("buffertools");
+ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
++var assert = require('assert');
++
++function do_one_encode_decode(batch_num, num, done) {
++  // var ref_buf = crypto.randomBytes(1000000);
++  var ref_buf = new Buffer(1000000);
++  buffertools.fill(ref_buf, 'z');
++
++  eclib.encode(ref_buf,
++    function(status, encoded_data, encoded_parity, encoded_fragment_length) {
++      var k = eclib.opt.k;
++      var m = eclib.opt.m;
++
++      var x = k - 1; // available data fragments
++      var y = m; // available parity fragments
++
++      var fragments = [];
++      var i, j;
++      j = 0;
++      for (i = 0; i < x; i++) {
++        fragments[j++] = encoded_data[i];
++      }
++      for (i = 0; i < y; i++) {
++        fragments[j++] = encoded_parity[i];
++      }
++
++      eclib.decode(fragments, x + y, encoded_fragment_length, 0,
++        function(status, out_data, out_data_length) {
++          assert.equal(buffertools.compare(out_data, ref_buf), 0);
++          done();
++        }
++      );
++    }
++  );
++}
+ 
+-console.log("ECLib testing");
++// Do one batch of encode/decode steps.
++//
++// When this batch is done, the next one will be triggered.
++function do_one_batch(num, done) {
++  var num_steps_done = 0;
++
++  var i;
++  for (i = 0; i < COUNT; i++) {
++    do_one_encode_decode(num, i, function() {
++      num_steps_done++;
++    });
++  }
+ 
+-var COUNT = 100; //per batch
+-var N_BATCHES = 10;
++  // Checks how many encode/decode steps have been done. When they are all
++  // finished, we'll call the "done" function, which will trigger the next
++  // batch to start running.
++  function checkSteps() {
++    if (num_steps_done >= COUNT) {
++      done();
++    } else {
++      setImmediate(checkSteps);
++    }
++  }
++  checkSteps();
++}
++
++function do_batches(num, done) {
++  // When all batches are done, we'll call the function "done".
++  if (num >= N_BATCHES) {
++    done();
++  } else {
++    console.log('batch #' + num + '/' + N_BATCHES);
++    // Not all batches have been ran. We'll call one and when its done,
++    // call the next one, etc, etc.
++    do_one_batch(num, function() {
++      do_batches(num + 1, done);
++    });
++  }
++}
++
++// Number of encodes/decodes per batch
++var COUNT = 100;
++// Number of batches
++var N_BATCHES = 20;
+ 
+ var eclib = new ECLib({
+   "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
+@@ -19,98 +103,10 @@ var eclib = new ECLib({
+   "w": 4,
+   "hd": 5
+ });
+-
+ eclib.init();
+ 
+-function do_it() {
+-
+-  var do_it_count = 0;
+-
+-  function batch() {
+-
+-    var batch_count = 0;
+-
+-    function test_one(num) {
+-      console.log("create " + num);
+-
+-      var ref_buf = new Buffer(1000000);
+-      buffertools.fill(ref_buf, 'z');
+-      //var ref_buf = crypto.randomBytes(1000000);
+-
+-      eclib.encode(ref_buf,
+-        function(status, encoded_data, encoded_parity,
+-          encoded_fragment_length) {
+-          console.log(num + " Encode Done status=" + status +
+-            " fragment_length=" + encoded_fragment_length);
+-
+-          k = eclib.opt.k;
+-          m = eclib.opt.m;
+-
+-          x = k - 1; //available data fragments
+-          y = m; //available parity fragments
+-
+-          var fragments = [];
+-          var i, j;
+-          j = 0;
+-          //console.log('data:');
+-          for (i = 0; i < x; i++) {
+-            //console.log(hexdump(encoded_data[i]));
+-            fragments[j++] = encoded_data[i];
+-          }
+-          //console.log('codings:');
+-          for (i = 0; i < y; i++) {
+-            //console.log(hexdump(encoded_parity[i]));
+-            fragments[j++] = encoded_parity[i];
+-          }
+-
+-          eclib.decode(fragments, x + y, encoded_fragment_length, 0,
+-            function(status, out_data, out_data_length) {
+-              console.log(num + " Decode Done status=" + status +
+-                " data_length=" + out_data_length);
+-
+-              //console.log(hexdump(out_data));
+-
+-              if (buffertools.compare(out_data, ref_buf) == 0)
+-                console.log(num + " OK Buffers are identical");
+-              else
+-                console.log(num + " Nok buffers differ");
+-
+-              batch_count++;
+-            }
+-          );
+-        }
+-      );
+-    }
+-
+-    var i = 0;
+-    for (i = 0; i < COUNT; i++) {
+-      test_one(i);
+-    }
+-
+-    var i = 0;
+-    var work = function(dosomestuff) {
+-      if (batch_count < COUNT) {
+-        //process.nextTick(work);
+-        setImmediate(work);
+-      } else {
+-        console.log("BATCH DONE " + batch_count);
+-        do_it_count++;
+-        batch();
+-      }
+-    }
+-    work();
+-  }
+-
+-  var work2 = function(dosomestuff2) {
+-      if (do_it_count < N_BATCHES) {
+-        process.nextTick(work2);
+-      } else {
+-        console.log("ALL BATCHES DONE");
+-      }
+-    }
+-    //work2();
+-
+-  batch();
+-}
+-
+-do_it();
++// Do all batches, starting with the batch 0.
++console.log('memleak test: start!');
++do_batches(0, function() {
++  console.log('memleak test: done!');
++});
+diff --git a/test/threaded.js b/test/threaded.js
+index b3647e0..5191c65 100644
+--- a/test/threaded.js
++++ b/test/threaded.js
+@@ -1,4 +1,6 @@
+-// launch multiple encodes/decodes in parallel
++// launch multiple encodes/decodes in parallel, to test for race conditions
++
++'use strict';
+ 
+ var ECLib = require('../node-eclib.js');
+ var enums = require('../eclib-enum.js');
+@@ -15,23 +17,19 @@ function test_one() {
+       console.log("Encode Done status=" + status + " fragment_length=" +
+         encoded_fragment_length);
+ 
+-      k = eclib.opt.k;
+-      m = eclib.opt.m;
++      var k = eclib.opt.k;
++      var m = eclib.opt.m;
+ 
+-      x = k - 1; //available data fragments
+-      y = m; //available parity fragments
++      var x = k - 1; //available data fragments
++      var y = m; //available parity fragments
+ 
+       var fragments = [];
+       var i, j;
+       j = 0;
+-      //console.log('data:');
+       for (i = 0; i < x; i++) {
+-        //console.log(hexdump(encoded_data[i]));
+         fragments[j++] = encoded_data[i];
+       }
+-      //console.log('codings:');
+       for (i = 0; i < y; i++) {
+-        //console.log(hexdump(encoded_parity[i]));
+         fragments[j++] = encoded_parity[i];
+       }
+ 
+@@ -66,13 +64,9 @@ var ref_buf = new Buffer(500000000);
+ buffertools.fill(ref_buf, 'z');
+ //var ref_buf = crypto.randomBytes(100000);
+ 
+-//console.log(hexdump(ref_buf));
+-
+ console.log("starting");
+ test_one();
+ test_one();
+ test_one();
+ 
+ //eclib.destroy();
+-
+-//global.gc(); //requires --expose-gc
+
+From 50ccaeca3c5ec3ec25c21677248bb50da52042d8 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Mon, 13 Jul 2015 15:35:33 +0200
+Subject: [PATCH 10/14] simplifies testing
+
+- tests can be run via "npm test"
+- tests do not generate output
+- tests fail with process exit status 1
+- README.md explains how to run the tests
+---
+ .gitignore        |   7 +-
+ README.md         |  11 ++-
+ node-eclib.js     |  23 ++----
+ run_tests.bash    |   8 +++
+ src/cpp/libmain.h |   2 -
+ test/encodev.js   | 108 +++++++++++++---------------
+ test/freetest.js  |   8 ++-
+ test/functest.js  | 174 +++++++++++++++++++++++++++++-----------------
+ test/longtest.js  |  32 +++++++--
+ test/threaded.js  |  59 ++++++++++------
+ 10 files changed, 261 insertions(+), 171 deletions(-)
+ create mode 100755 run_tests.bash
+
+diff --git a/.gitignore b/.gitignore
+index a81d871..75045c3 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -7,6 +7,11 @@ pids
+ *.pid
+ *.seed
+ 
++# Erasure coding libs
++erasurecode
++gf_complete
++Jerasure
++
+ # Directory for instrumented libs generated by jscoverage/JSCover
+ lib-cov
+ 
+@@ -27,5 +32,5 @@ build/*
+ # https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
+ node_modules
+ 
+-# temptest.js should not be in the repo 
++# temptest.js should not be in the repo
+ test/temptest.js
+diff --git a/README.md b/README.md
+index 2357918..3d58e70 100644
+--- a/README.md
++++ b/README.md
+@@ -24,6 +24,11 @@ npm install
+ The install process will need to install libraries and node-gyp, requiring
+ sudo usage.
+ 
++Running the test is done via the usual:
++```sh
++npm test
++```
++
+ 
+ ### Prestudy
+ ===========
+@@ -37,9 +42,9 @@ be really helpful to read this:
+ Here are the details
+ 
+ ## Js Files
+-* eclib-enum.js # 
++* eclib-enum.js #
+ 	This file will contain all the enum values that was introduced in the c project to keep the simillarity among the projects.
+-* eclib-util.js # 
++* eclib-util.js #
+ 	This contain all the util method that was required by the node-eclib.js file
+ * node-eclib.js #
+ 	This file has some commented out code, please go through it. Initially it was a strait forward implementation. Currently the class has only the skeleton of the methods.
+@@ -50,6 +55,6 @@ Here are the details
+ * asyncencode.cpp # This class holds all the encode methods. Partially implemented .(Previous plan was to use NAN's asyn task for encoding)
+ * asyncreconstruction.cpp # Just a dummy class for exposing fragment reconstruction
+ * libmain.cpp # This class will have all the method except those 5 methods. Partially implemented.
+-* Libutil.cpp # This class holds the util method for the all the classes. Just few methods are implemented here.
++* libutil.cpp # This class holds the util method for the all the classes. Just few methods are implemented here.
+ 
+ ---------
+diff --git a/node-eclib.js b/node-eclib.js
+index d155a20..cd1f54e 100644
+--- a/node-eclib.js
++++ b/node-eclib.js
+@@ -23,9 +23,7 @@ function ECLib(opts) {
+ 	this.ins_id = null;
+ 	this.eclibUtil = new ECLibUtil();
+ 	this.isValidInstance = function() {
+-
+ 		return (__.isUndefined(this.ins_id));
+-
+ 	};
+ 
+ 	this.resetOptions = function() {
+@@ -59,16 +57,11 @@ ECLib.prototype = {
+ 			instance_descriptor_id = err.errorcode;
+ 		}
+ 
+-
+ 		if (!callback) {
+-
+ 			return instance_descriptor_id;
+ 		}
+ 
+ 		callback.call(this, instance_descriptor_id, err);
+-
+-
+-
+ 	},
+ 	destroy: function(callback) {
+ 
+@@ -81,12 +74,9 @@ ECLib.prototype = {
+ 				err.errorcode = resultcode;
+ 				err.message = this.eclibUtil.getErrorMessage(resultcode);
+ 			}
+-
+ 		} else {
+-
+ 			err.errorcode = resultcode;
+ 			err.message = this.eclibUtil.getErrorMessage(resultcode);
+-
+ 		}
+ 
+ 		if (!callback) {
+@@ -103,19 +93,18 @@ ECLib.prototype = {
+ 		addon.encode(this.ins_id, o.k, o.m, o_data, o_data.length, callback);
+ 	},
+ 
+-	encodev: function(n_buf, buf_array, total_size, callback){
+-	    var o = this.opt;
++	encodev: function(n_buf, buf_array, total_size, callback) {
++		var o = this.opt;
+ 
+-	    addon.encodev(this.ins_id, o.k, o.m, n_buf, buf_array, total_size, callback);
++		addon.encodev(this.ins_id, o.k, o.m, n_buf, buf_array, total_size, callback);
+ 	},
+ 
+-	decode:function(d_data,n_frags,frag_len,force_metadata_check,callback){
+-	    addon.decode(this.ins_id, d_data, n_frags, frag_len, force_metadata_check, callback);
++	decode: function(d_data, n_frags, frag_len, force_metadata_check, callback) {
++		addon.decode(this.ins_id, d_data, n_frags, frag_len, force_metadata_check, callback);
+ 	},
+ 
+ 	getFragmentMetadata: function(fragment, fragment_metadata, callback) {
+-
+-
++		// TODO: what is this function supposed to do ?
+ 	},
+ 
+ 	setOptions: function(opts){
+diff --git a/run_tests.bash b/run_tests.bash
+new file mode 100755
+index 0000000..39782e7
+--- /dev/null
++++ b/run_tests.bash
+@@ -0,0 +1,8 @@
++#!/bin/bash
++
++for t in `ls test`; do
++  node test/$t
++  if [ $? != 0 ]; then
++    exit 1
++  fi
++done
+diff --git a/src/cpp/libmain.h b/src/cpp/libmain.h
+index 9bc93fe..aae561e 100644
+--- a/src/cpp/libmain.h
++++ b/src/cpp/libmain.h
+@@ -13,5 +13,3 @@ NAN_METHOD(EclVerifyStripeMetadata);
+ NAN_METHOD(EclGetAlignedDataSize);
+ NAN_METHOD(EclGetMinimumEncodeSize);
+ NAN_METHOD(EclGetFragmentSize);
+-NAN_METHOD(testpad);
+-
+diff --git a/test/encodev.js b/test/encodev.js
+index 4c118ba..6b06684 100644
+--- a/test/encodev.js
++++ b/test/encodev.js
+@@ -1,70 +1,62 @@
+ // test encodev
+ 
++'use strict';
++
+ var ECLib = require('../node-eclib.js');
+ var enums = require('../eclib-enum.js');
+ var ECLibUtil = require('../eclib-util.js');
+ var buffertools = require("buffertools");
+ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
+-
+-console.log("ECLib testing");
++var assert = require('assert');
+ 
+ function test_one(name, opts) {
+-    console.log("create " + name);
+-
+-    var eclib = new ECLib(opts);
+-    
+-    eclib.init();
+-    
+-    var sz1 = 123434;
+-    var sz2 = 343434;
+-    var ref_buf1 = crypto.randomBytes(sz1);
+-    var ref_buf2 = crypto.randomBytes(sz2);
+-    var ref_buf = buffertools.concat(ref_buf1, ref_buf2);
+-    var buf_array = [ref_buf1, ref_buf2];
+-
+-    eclib.encodev(2, buf_array, sz1 + sz2,
+-		 function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-		     console.log(name + " Encode Done status=" + status + " fragment_length=" + encoded_fragment_length);
+-		     
+-		     k = eclib.opt.k;
+-		     m = eclib.opt.m;
+-		     
+-		     x = k-1; //available data fragments
+-		     y = m;   //available parity fragments
+-		     
+-		     var fragments = [];
+-		     var i, j;
+-		     j = 0;
+-		     //console.log('data:');
+-		     for (i = 0;i < x;i++) {
+-			 //console.log(hexdump(encoded_data[i]));
+-			 fragments[j++] = encoded_data[i];
+-		     }
+-		     //console.log('codings:');
+-		     for (i = 0;i < y;i++) {
+-			 //console.log(hexdump(encoded_parity[i]));
+-			 fragments[j++] = encoded_parity[i];
+-		     }
+-		     
+-		     eclib.decode(fragments, x+y, encoded_fragment_length, 0,
+-				  function(status, out_data, out_data_length) {
+-				      console.log(name + " Decode Done status=" + status + " data_length=" + out_data_length);
+-
+-				      //console.log(hexdump(out_data));
+-				      
+-				      if (buffertools.compare(out_data, ref_buf) == 0)
+-					  console.log(name + " OK Buffers are identical");
+-				      else
+-					  console.log(name + " Nok buffers differ");
+-				      eclib.destroy();
+-				      delete ref_buf;
+-				  }
+-				 );
+-		 }
+-		);
++  var eclib = new ECLib(opts);
++  eclib.init();
++
++  var sz1 = 123434;
++  var sz2 = 343434;
++  var ref_buf1 = crypto.randomBytes(sz1);
++  var ref_buf2 = crypto.randomBytes(sz2);
++  var ref_buf = buffertools.concat(ref_buf1, ref_buf2);
++  var buf_array = [ref_buf1, ref_buf2];
++
++  process.stdout.write('.');
++
++  eclib.encodev(2, buf_array, sz1 + sz2,
++    function(status, encoded_data, encoded_parity, encoded_fragment_length) {
++      var k = eclib.opt.k;
++      var m = eclib.opt.m;
++
++      var x = k - 1; //available data fragments
++      var y = m; //available parity fragments
++
++      var fragments = [];
++      var i, j = 0;
++      for (i = 0; i < x; i++) {
++        fragments[j++] = encoded_data[i];
++      }
++      for (i = 0; i < y; i++) {
++        fragments[j++] = encoded_parity[i];
++      }
++
++      process.stdout.write('.');
++
++      eclib.decode(fragments, x + y, encoded_fragment_length, 0,
++        function(status, out_data, out_data_length) {
++          assert.equal(buffertools.compare(out_data, ref_buf), 0);
++          eclib.destroy();
++          console.log(' done');
++        }
++      );
++    }
++  );
+ }
+ 
+-//console.log(hexdump(ref_buf));
+-
+-test_one("xor", {"bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"], "k": 3, "m": 3, "hd": 3});
++process.stdout.write('encodev: ');
++test_one("xor", {
++  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
++});
+diff --git a/test/freetest.js b/test/freetest.js
+index 720b199..0320457 100644
+--- a/test/freetest.js
++++ b/test/freetest.js
+@@ -16,6 +16,8 @@ function decode_result(status, out_data, out_data_length) {
+ 
+   // Free memory used by ECLib.
+   eclib.destroy();
++
++  console.log(' done');
+ }
+ 
+ function encode_result(status, encoded_data, encoded_parity,
+@@ -38,11 +40,13 @@ function encode_result(status, encoded_data, encoded_parity,
+     fragments[j++] = encoded_parity[i];
+   }
+ 
++  process.stdout.write('.');
++
+   eclib.decode(fragments, x + y, encoded_fragment_length, 0, decode_result);
+ }
+ 
+ function test_one() {
+-  eclib.init();
++  process.stdout.write('.');
+   eclib.encode(ref_buf, encode_result);
+ }
+ 
+@@ -59,7 +63,9 @@ var eclib = new ECLib({
+   "m": 3,
+   "hd": 3
+ });
++eclib.init();
+ 
+ var ref_buf = crypto.randomBytes(100000);
+ 
++process.stdout.write('free: ');
+ test_one();
+diff --git a/test/functest.js b/test/functest.js
+index 7199dfd..82fcb64 100644
+--- a/test/functest.js
++++ b/test/functest.js
+@@ -10,6 +10,9 @@ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
+ var assert = require('assert');
+ 
++// Number of tests that are done at any given time.
++var done = 0;
++
+ function test_one(name, opts) {
+   var eclib = new ECLib(opts);
+ 
+@@ -17,6 +20,8 @@ function test_one(name, opts) {
+ 
+   var ref_buf = crypto.randomBytes(10000000);
+ 
++  process.stdout.write('.');
++
+   eclib.encode(ref_buf,
+     function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+ 
+@@ -36,12 +41,19 @@ function test_one(name, opts) {
+         fragments[j++] = encoded_parity[i];
+       }
+ 
++      process.stdout.write('.');
++
+       eclib.decode(fragments, x + y, encoded_fragment_length, 0,
+         function(status, out_data, out_data_length) {
+           // If buffers are not equal, something bad must have happened.
+           assert.equal(buffertools.compare(out_data, ref_buf), 0);
+ 
++          // Free the ressources allocated for erasure coding.
+           eclib.destroy();
++
++          // Node is single threaded so this is safe to do.
++          done += 1;
++          process.stdout.write('.');
+         }
+       );
+     }
+@@ -56,69 +68,107 @@ function test_one(name, opts) {
+ //EC_BACKEND_SHSS
+ //EC_BACKEND_ISA_L_RS_CAUCHY
+ 
++// TODO: why is this off ?
+ //test_one("null", {"bc_id": enums.BackendId["EC_BACKEND_NULL"], "k": 8, "m": 4});
+-test_one("xor", {
+-  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
+-  "k": 3,
+-  "m": 3,
+-  "hd": 3
+-});
+-test_one("vand", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
+-  "k": 10,
+-  "m": 4,
+-  "w": 16,
+-  "hd": 5
+-});
+-test_one("vand_44", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
+-  "k": 4,
+-  "m": 4,
+-  "w": 16,
+-  "hd": 5
+-});
+-test_one("vand_48", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
+-  "k": 4,
+-  "m": 8,
+-  "w": 16,
+-  "hd": 9
+-});
+-test_one("vand_1010", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
+-  "k": 10,
+-  "m": 10,
+-  "w": 16,
+-  "hd": 11
+-});
+-test_one("cauchy", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
+-  "k": 10,
+-  "m": 4,
+-  "w": 4,
+-  "hd": 5
+-});
+-test_one("cauchy_44", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
+-  "k": 4,
+-  "m": 4,
+-  "w": 4,
+-  "hd": 5
+-});
+-test_one("cauchy_48", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
+-  "k": 4,
+-  "m": 8,
+-  "w": 8,
+-  "hd": 9
+-});
+-test_one("cauchy_1010", {
+-  "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
+-  "k": 10,
+-  "m": 10,
+-  "w": 8,
+-  "hd": 11
+-});
++
++var tests = [{
++  name: "xor",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++    "k": 3,
++    "m": 3,
++    "hd": 3
++  },
++}, {
++  name: "vand",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++    "k": 10,
++    "m": 4,
++    "w": 16,
++    "hd": 5
++  }
++}, {
++  name: "vand_44",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++    "k": 4,
++    "m": 4,
++    "w": 16,
++    "hd": 5
++  }
++}, {
++  name: "vand_48",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++    "k": 4,
++    "m": 8,
++    "w": 16,
++    "hd": 9
++  }
++}, {
++  name: "vand_1010",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
++    "k": 10,
++    "m": 10,
++    "w": 16,
++    "hd": 11
++  }
++}, {
++  name: "cauchy",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++    "k": 10,
++    "m": 4,
++    "w": 4,
++    "hd": 5
++  }
++}, {
++  name: "cauchy_44",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++    "k": 4,
++    "m": 4,
++    "w": 4,
++    "hd": 5
++  }
++}, {
++  name: "cauchy_48",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++    "k": 4,
++    "m": 8,
++    "w": 8,
++    "hd": 9
++  }
++}, {
++  name: "cauchy_1010",
++  options: {
++    "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_CAUCHY"],
++    "k": 10,
++    "m": 10,
++    "w": 8,
++    "hd": 11
++  }
++}];
++
++function monitorState() {
++  if (done < tests.length) {
++    setImmediate(monitorState);
++  } else {
++    console.log(' done');
++  }
++}
++monitorState();
++
++process.stdout.write('algorithms: ');
++tests.forEach(function(test, i) {
++  test_one(test.name, test.options);
++})
++
++// The tests with ISA require an additional library. They are disabled for now because of this.
++
+ // test_one("isa_l", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 4, "w": 8, "hd": 5});
+ // test_one("isa_l_44", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 4, "m": 4, "w": 8, "hd": 5});
+ // test_one("isa_l_1010", {"bc_id": enums.BackendId["EC_BACKEND_ISA_L_RS_VAND"], "k": 10, "m": 10, "w": 8, "hd": 11});
+diff --git a/test/longtest.js b/test/longtest.js
+index b2d61c6..e91033f 100644
+--- a/test/longtest.js
++++ b/test/longtest.js
+@@ -82,7 +82,7 @@ function do_batches(num, done) {
+   if (num >= N_BATCHES) {
+     done();
+   } else {
+-    console.log('batch #' + num + '/' + N_BATCHES);
++    process.stdout.write('.');
+     // Not all batches have been ran. We'll call one and when its done,
+     // call the next one, etc, etc.
+     do_one_batch(num, function() {
+@@ -105,8 +105,32 @@ var eclib = new ECLib({
+ });
+ eclib.init();
+ 
+-// Do all batches, starting with the batch 0.
+-console.log('memleak test: start!');
++// Returns heap usage in MiB
++function getHeapUsage() {
++  return process.memoryUsage().heapUsed / 1024 / 1024;
++}
++
++// Monitor heap usage to make sure there are no mem leaks
++function monitorHeapUsage(initialHeapUsage) {
++  // We'll allow memory to increase a bit (1.5) but if it increases more, we'll consider
++  // that to be a memory leak.
++  assert.equal(getHeapUsage() <= initialHeapUsage * 1.5, true,
++    'heap usage has increased too much, it looks like there is a memory leak');
++
++  // If the batches are not done yet done, we'll continue monitoring.
++  if (!done) {
++    setImmediate(function() {
++      monitorHeapUsage(initialHeapUsage);
++    });
++  }
++}
++
++monitorHeapUsage(getHeapUsage());
++
++// Do all batches, starting with the 1st batch.
++var done = false;
++process.stdout.write('memleaks: ');
+ do_batches(0, function() {
+-  console.log('memleak test: done!');
++  console.log(' done');
++  done = true;
+ });
+diff --git a/test/threaded.js b/test/threaded.js
+index 5191c65..4ee1982 100644
+--- a/test/threaded.js
++++ b/test/threaded.js
+@@ -8,20 +8,21 @@ var ECLibUtil = require('../eclib-util.js');
+ var buffertools = require("buffertools");
+ var crypto = require('crypto');
+ var hexdump = require('hexdump-nodejs');
++var assert = require('assert');
+ 
+-console.log("ECLib testing");
++// Number of tests that are done at any given time.
++var done = 0;
+ 
+ function test_one() {
++  process.stdout.write('.');
++
+   eclib.encode(ref_buf,
+     function(status, encoded_data, encoded_parity, encoded_fragment_length) {
+-      console.log("Encode Done status=" + status + " fragment_length=" +
+-        encoded_fragment_length);
+-
+       var k = eclib.opt.k;
+       var m = eclib.opt.m;
+ 
+-      var x = k - 1; //available data fragments
+-      var y = m; //available parity fragments
++      var x = k - 1; // available data fragments
++      var y = m; // available parity fragments
+ 
+       var fragments = [];
+       var i, j;
+@@ -33,40 +34,52 @@ function test_one() {
+         fragments[j++] = encoded_parity[i];
+       }
+ 
++      process.stdout.write('.');
++
+       eclib.decode(fragments, x + y, encoded_fragment_length, 0,
+         function(status, out_data, out_data_length) {
+-          console.log("Decode Done status=" + status + " data_length=" +
+-            out_data_length);
+-
+-          //console.log(hexdump(out_data));
++          // If buffers differ, something bad happened.
++          assert.equal(buffertools.compare(out_data, ref_buf), 0);
+ 
+-          if (buffertools.compare(out_data, ref_buf) == 0)
+-            console.log("OK Buffers are identical");
+-          else
+-            console.log("Nok buffers differ");
++          // Node is single threaded so this is safe.
++          done += 1;
++          process.stdout.write('.');
+         }
+       );
+-      console.log("Right after decode called");
+     }
+   );
+ }
+ 
++process.stdout.write('threads: ');
++
++var numTests = 4;
++var ref_buf = new Buffer(500000000);
++buffertools.fill(ref_buf, 'z');
++
++process.stdout.write('.');
++
+ var eclib = new ECLib({
+   "bc_id": enums.BackendId["EC_BACKEND_JERASURE_RS_VAND"],
+   "k": 3,
+   "m": 3,
+   "hd": 3
+ });
+-
+ eclib.init();
+ 
+-var ref_buf = new Buffer(500000000);
+-buffertools.fill(ref_buf, 'z');
+-//var ref_buf = crypto.randomBytes(100000);
++process.stdout.write('.');
+ 
+-console.log("starting");
+-test_one();
+-test_one();
+-test_one();
++function monitorState() {
++  if (done < numTests) {
++    setImmediate(monitorState);
++  } else {
++    console.log(' done');
++  }
++}
++monitorState();
++
++var numTests = 4;
++for (var i = 0; i < numTests; i++) {
++  test_one();
++}
+ 
+ //eclib.destroy();
+
+From 018b59664a039722746b4b4981954f7b31a4400a Mon Sep 17 00:00:00 2001
+From: Jacob Zak <jagu.sayan@gmail.com>
+Date: Thu, 23 Jul 2015 16:03:33 +0200
+Subject: [PATCH 11/14] fix(Makefile): doesn't relink anymore with npm install
+
+Work on both os: Mac and Linux
+---
+ Makefile | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 61e306e..f04d2d4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -7,11 +7,11 @@ LIBDIR		= /usr/local/lib
+ LIBS		= $(addsuffix .so, $(GF) $(JERASURE) $(LIBERAS))
+ DEPS		= $(addprefix $(LIBDIR)/lib, $(LIBS))
+ 
+-ifeq ($(shell uname -s),Linux)
+-LIB_GUARD = ldconfig -p | grep
+-else
+-LIB_GUARD = false
++LIB_EXT := so
++ifeq ($(shell uname -s), Darwin)
++	LIB_EXT := dylib
+ endif
++LIB_GUARD := find /usr 2>/dev/null -name '*.$(LIB_EXT)' | grep
+ 
+ all: $(TARGET)
+ 
+@@ -19,31 +19,31 @@ $(TARGET): $(DEPS)
+ 	sudo npm install -g node-gyp
+ 
+ $(GF):
+-	$(LIB_GUARD) libgf_complete.so || git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
++	$(LIB_GUARD) libgf_complete.$(LIB_EXT) || git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
+ 
+ $(GF)/Makefile: | $(GF)
+-	$(LIB_GUARD) libgf_complete.so || ( cd $(GF) && ./autogen.sh && ./configure )
++	$(LIB_GUARD) libgf_complete.$(LIB_EXT) || ( cd $(GF) && ./autogen.sh && ./configure )
+ 
+ $(LIBDIR)/libgf_complete.so: $(GF)/Makefile
+-	$(LIB_GUARD) libgf_complete.so || ( $(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install )
++	$(LIB_GUARD) libgf_complete.$(LIB_EXT) || ( $(MAKE) -C $(GF) && sudo $(MAKE) -C $(GF) install )
+ 
+ $(JERASURE):
+-	$(LIB_GUARD) libJerasure.so || git clone http://lab.jerasure.org/jerasure/jerasure.git $@
++	$(LIB_GUARD) libJerasure.$(LIB_EXT) || git clone http://lab.jerasure.org/jerasure/jerasure.git $@
+ 
+ $(JERASURE)/Makefile: | $(JERASURE)
+-	$(LIB_GUARD) libJerasure.so || ( cd $(JERASURE) && autoreconf --force --install -I m4 && ./configure )
++	$(LIB_GUARD) libJerasure.$(LIB_EXT) || ( cd $(JERASURE) && autoreconf --force --install -I m4 && ./configure )
+ 
+ $(LIBDIR)/libJerasure.so: $(JERASURE)/Makefile
+-	$(LIB_GUARD) libJerasure.so || ( $(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install )
++	$(LIB_GUARD) libJerasure.$(LIB_EXT) || ( $(MAKE) -C $(JERASURE) && sudo $(MAKE) -C $(JERASURE) install )
+ 
+ $(LIBERAS):
+-	$(LIB_GUARD) liberasurecode.so || git clone https://bitbucket.org/tsg-/liberasurecode.git $@
++	$(LIB_GUARD) liberasurecode.$(LIB_EXT) || git clone https://bitbucket.org/tsg-/liberasurecode.git $@
+ 
+ $(LIBERAS)/Makefile: | $(LIBERAS)
+-	$(LIB_GUARD) liberasurecode.so ||  ( cd $(LIBERAS) && ./autogen.sh && ./configure )
++	$(LIB_GUARD) liberasurecode.$(LIB_EXT) ||  ( cd $(LIBERAS) && ./autogen.sh && ./configure )
+ 
+ $(LIBDIR)/liberasurecode.so: $(LIBERAS)/Makefile
+-	$(LIB_GUARD) liberasurecode.so || ( $(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
++	$(LIB_GUARD) liberasurecode.$(LIB_EXT) || ( $(MAKE) -C $(LIBERAS) && $(MAKE) -C $(LIBERAS) test \
+ 		&& sudo $(MAKE) -C $(LIBERAS) install )
+ 
+ clean:
+
+From a7591bbf1de22d372d9714043e20122b89af3c89 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Fri, 24 Jul 2015 16:44:02 +0200
+Subject: [PATCH 12/14] removes `npm install node-gyp` on every `npm install`
+
+---
+ Makefile  | 5 +----
+ README.md | 1 +
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index f04d2d4..c2111e3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -13,10 +13,7 @@ ifeq ($(shell uname -s), Darwin)
+ endif
+ LIB_GUARD := find /usr 2>/dev/null -name '*.$(LIB_EXT)' | grep
+ 
+-all: $(TARGET)
+-
+-$(TARGET): $(DEPS)
+-	sudo npm install -g node-gyp
++all: $(DEPS)
+ 
+ $(GF):
+ 	$(LIB_GUARD) libgf_complete.$(LIB_EXT) || git clone http://lab.jerasure.org/jerasure/gf-complete.git $@
+diff --git a/README.md b/README.md
+index 3d58e70..70befa5 100644
+--- a/README.md
++++ b/README.md
+@@ -19,6 +19,7 @@ https://bitbucket.org/tsg-/liberasurecode/src/e46c434e36566f6f0820923a9a184e27d7
+ =========
+ A simple command will take care of everything for you:
+ ```sh
++npm install -g node-gyp # you might need to be root for this command
+ npm install
+ ```
+ The install process will need to install libraries and node-gyp, requiring
+
+From 68e0d1d1bf9137896baddaab385e364beb725f15 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Thu, 30 Jul 2015 12:02:19 +0200
+Subject: [PATCH 13/14] reconstruct: adds support for reconstructing 1 missing
+ fragment
+
+---
+ node-eclib.js                   |  15 +++++
+ src/cpp/asyncreconstruction.cpp | 103 ++++++++++++++++++++++++++++++--
+ test/reconstruct.js             |  71 ++++++++++++++++++++++
+ 3 files changed, 184 insertions(+), 5 deletions(-)
+ create mode 100644 test/reconstruct.js
+
+diff --git a/node-eclib.js b/node-eclib.js
+index cd1f54e..74008e3 100644
+--- a/node-eclib.js
++++ b/node-eclib.js
+@@ -103,6 +103,21 @@ ECLib.prototype = {
+ 		addon.decode(this.ins_id, d_data, n_frags, frag_len, force_metadata_check, callback);
+ 	},
+ 
++	reconstructFragment: function(avail_fragments, missing_fragment_id, callback) {
++		if (!avail_fragments.length) {
++			callback(new Error('invalid number of available fragments (must be > 0)'), null);
++			return;
++		}
++		addon.reconstructFragment(
++			this.ins_id,
++			avail_fragments,
++			avail_fragments.length,
++			avail_fragments[0].length,
++			missing_fragment_id,
++			callback
++		);
++	},
++
+ 	getFragmentMetadata: function(fragment, fragment_metadata, callback) {
+ 		// TODO: what is this function supposed to do ?
+ 	},
+diff --git a/src/cpp/asyncreconstruction.cpp b/src/cpp/asyncreconstruction.cpp
+index 40793ec..3548e4e 100644
+--- a/src/cpp/asyncreconstruction.cpp
++++ b/src/cpp/asyncreconstruction.cpp
+@@ -1,10 +1,103 @@
+-#include <node.h>
+-#include <nan.h>
+-
+ #include "asyncreconstruction.h"
+ 
++using namespace v8;
++
++class AsyncReconstructWorker : public NanAsyncWorker {
++public:
++    AsyncReconstructWorker(
++        int instance_descriptor_id,
++        char **avail_fragments_ptr,
++        int num_fragments,
++        int fragment_length,
++        int missing_fragment_id,
++        NanCallback *callback):
++            NanAsyncWorker(callback),
++            _status(-1),
++            _instance_descriptor_id(instance_descriptor_id),
++            _avail_fragments_ptr(avail_fragments_ptr),
++            _num_fragments(num_fragments),
++            _fragment_length(fragment_length),
++            _missing_fragment_id(missing_fragment_id) {
++        _reconstructed_fragment = new char[_fragment_length];
++    }
++
++    ~AsyncReconstructWorker() {
++        for (int i = 0; i < _num_fragments; i++) {
++            delete _avail_fragments_ptr[i];
++        }
++        delete _avail_fragments_ptr;
++        delete _reconstructed_fragment;
++    }
++
++    void Execute() {
++        _status = liberasurecode_reconstruct_fragment(
++            _instance_descriptor_id,
++            _avail_fragments_ptr,
++            _num_fragments,
++            _fragment_length,
++            _missing_fragment_id,
++            _reconstructed_fragment
++        );
++
++        if (_status != 0) {
++            SetErrorMessage("an error occured while reconstructing");
++        }
++    }
++
++    void HandleOKCallback() {
++        NanScope();
++
++        Handle<Value> argv[] = {
++            NanNull(),
++            NanNewBufferHandle(_reconstructed_fragment, _fragment_length)
++        };
++
++        callback->Call(2, argv);
++    }
++
++    void HandleErrorCallback() {
++        NanScope();
++
++        Handle<Value> argv[] = {
++            NanError("could not reconstruct fragment")
++        };
++
++        callback->Call(1, argv);
++    }
++
++private:
++    int _status;
++    int _instance_descriptor_id;
++    char **_avail_fragments_ptr;
++    int _num_fragments;
++    int _fragment_length;
++    int _missing_fragment_id;
++    char *_reconstructed_fragment;
++};
++
+ NAN_METHOD(EclReconstructFragment) {
+-  NanScope();
++    NanScope();
++
++    int instance_descriptor_id = args[0]->NumberValue();
++    int num_fragments = args[2]->NumberValue();
++    int fragment_length = args[3]->NumberValue();
++    int missing_fragment_id = args[4]->NumberValue();
++    Local<Object> avail_fragments = args[1]->ToObject();
++    char **avail_fragments_ptr = new char*[num_fragments];
++    for (int i = 0; i < num_fragments; i++) {
++        avail_fragments_ptr[i] = new char[fragment_length];
++        memcpy(avail_fragments_ptr[i], node::Buffer::Data(avail_fragments->Get(i)), fragment_length);
++    }
++
++    NanCallback *callback = new NanCallback(args[5].As<Function>());
+ 
+-  NanReturnValue(NanNew("C++ Reconstruct Fragment"));
++    NanAsyncQueueWorker(new AsyncReconstructWorker(
++        instance_descriptor_id,
++        avail_fragments_ptr,
++        num_fragments,
++        fragment_length,
++        missing_fragment_id,
++        callback
++    ));
++    NanReturnUndefined();
+ }
+diff --git a/test/reconstruct.js b/test/reconstruct.js
+new file mode 100644
+index 0000000..3684633
+--- /dev/null
++++ b/test/reconstruct.js
+@@ -0,0 +1,71 @@
++'use strict';
++
++var ECLib = require('../node-eclib.js');
++var enums = require('../eclib-enum.js');
++var ECLibUtil = require('../eclib-util.js');
++var buffertools = require("buffertools");
++var crypto = require('crypto');
++var hexdump = require('hexdump-nodejs');
++var assert = require('assert');
++
++var ec = new ECLib({
++  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
++});
++
++ec.init();
++
++var data = new Buffer("Hello world of Rust ! This is some serious decoding !");
++
++process.stdout.write('reconstruct:');
++
++ec.encode(data, function(status, dataFragments, parityFragments, fragmentLength) {
++    assert.equal(status, 0);
++
++    process.stdout.write('.');
++
++    var allFragments = dataFragments.concat(parityFragments);
++
++    // Lose the 3rd fragment (index 2). This should allow for reconstruction.
++    var missing_fragment_id = 1;
++    allFragments.splice(missing_fragment_id, 1);
++
++    ec.reconstructFragment(allFragments, 2, function(err, missing_fragment) {
++        assert.equal(err, null);
++
++        process.stdout.write('.');
++
++        // Insert the missing fragment.
++        allFragments.splice(2, 0, missing_fragment);
++
++        ec.decode(allFragments, allFragments.length, fragmentLength, false, function(status, decoded_data) {
++            // check that the decoded data is like the initial one
++            assert.equal(Buffer.compare(data, decoded_data), 0);
++
++            process.stdout.write('.');
++
++            // test error callback
++            ec.reconstructFragment([], 3, function(err) {
++                assert.notEqual(err, null);
++                process.stdout.write('.');
++
++                function gb(n) {
++                    var b = [];
++                    for (var i = 0; i < n; i++) {
++                        b.push(new Buffer(crypto.randomBytes(32)));
++                    }
++                    return b;
++                }
++
++                ec.reconstructFragment(gb(16), 1, function(err) {
++                    process.stdout.write('.');
++                    assert.notEqual(err, null);
++                    ec.destroy();
++                    console.log(' done');
++                });
++            });
++        });
++    });
++});
+
+From 6ff84e0ed5915a4540192a4b6a5f780d92473a63 Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Thu, 30 Jul 2015 16:58:31 +0200
+Subject: [PATCH 14/14] reconstruct: adds support for reconstructing multiple
+ fragments
+
+---
+ node-eclib.js            | 41 ++++++++++++++++++++++++++++++++
+ test/reconstruct_mult.js | 50 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+)
+ create mode 100644 test/reconstruct_mult.js
+
+diff --git a/node-eclib.js b/node-eclib.js
+index 74008e3..8d047fb 100644
+--- a/node-eclib.js
++++ b/node-eclib.js
+@@ -118,6 +118,47 @@ ECLib.prototype = {
+ 		);
+ 	},
+ 
++	reconstruct: function(avail_fragments, missing_fragment_ids, callback) {
++		var self = this;
++
++		// If we sort the missing indexes, than we can safely insert each
++		// recoevered fragment when we have it. Example: we have 10 fragments,
++		// but the 3rd, 6th and 8th are missing. If the `missing_fragment_ids`
++		// is unsorted, like [8,6,3], then we have the following
++		// `avail_fragments`: [1,2,4,5,7,9,10]. If we first recover the 8th
++		// fragment, we don't where to insert it. But if we first recover the
++		// 3rd fragment, we know we can insert it at index 3, so that we then
++		// have the `avail_fragments` set to [1,2,3,4,5,7,9,10] when we recover
++		// the 6th fragment.
++		missing_fragment_ids.sort();
++
++		// Reconstruct one fragment with a Promise (instead of a callback).
++		var recf = function(fragments, id) {
++			return new Promise(function(yes, no) {
++				self.reconstructFragment(fragments, id, function(err, fragment) {
++					if (err) return no(err);
++					yes(fragment);
++				});
++			});
++		};
++
++		// Recover all missing fragments one by one.
++		var done = new Promise(function(yes, no) { yes(); });
++		missing_fragment_ids.forEach(function(id) {
++			done = done.then(function() {
++				return recf(avail_fragments, id).then(function(frag) {
++					avail_fragments.splice(id, 0, frag);
++				});
++			});
++		});
++
++		done.then(function() {
++			callback(null, avail_fragments);
++		}, function(err) {
++			callback(err, null);
++		});
++	},
++
+ 	getFragmentMetadata: function(fragment, fragment_metadata, callback) {
+ 		// TODO: what is this function supposed to do ?
+ 	},
+diff --git a/test/reconstruct_mult.js b/test/reconstruct_mult.js
+new file mode 100644
+index 0000000..814f829
+--- /dev/null
++++ b/test/reconstruct_mult.js
+@@ -0,0 +1,50 @@
++'use strict';
++
++var ECLib = require('../node-eclib.js');
++var enums = require('../eclib-enum.js');
++var ECLibUtil = require('../eclib-util.js');
++var buffertools = require("buffertools");
++var crypto = require('crypto');
++var hexdump = require('hexdump-nodejs');
++var assert = require('assert');
++
++var ec = new ECLib({
++  "bc_id": enums.BackendId["EC_BACKEND_FLAT_XOR_HD"],
++  "k": 3,
++  "m": 3,
++  "hd": 3
++});
++
++ec.init();
++
++var data = new Buffer("Hello world of Rust ! This is some serious decoding !");
++
++process.stdout.write('reconstruct:');
++
++ec.encode(data, function(status, dataFragments, parityFragments, fragmentLength) {
++    assert.equal(status, 0);
++
++    process.stdout.write('.');
++
++    var allFragments = dataFragments.concat(parityFragments);
++
++    // Lose 3 fragments, 2 of which are data. We should be able to still
++    // recover the data.
++    allFragments.splice(1, 1); // index 1
++    allFragments.splice(1, 1); // index 2
++    allFragments.splice(2, 1); // index 4
++
++    ec.reconstruct(allFragments, [1, 4, 2], function(err, newAllFragments) {
++        assert.equal(err, null);
++
++        process.stdout.write('.');
++
++        ec.decode(newAllFragments, newAllFragments.length, fragmentLength, false, function(status, decoded_data) {
++            // check that the decoded data is like the initial one
++            assert.equal(Buffer.compare(data, decoded_data), 0);
++
++            process.stdout.write('.');
++            console.log(' done');
++        });
++    });
++});

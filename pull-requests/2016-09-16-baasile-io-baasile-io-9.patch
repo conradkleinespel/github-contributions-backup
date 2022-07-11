@@ -1,0 +1,21 @@
+From 86782617d0bc84f06693f3052f9a94808ce1f345 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 16 Sep 2016 02:19:08 +0200
+Subject: [PATCH] adds node-sass package required by email-templates
+
+---
+ package.json | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/package.json b/package.json
+index ab47fd8b..93e0548a 100644
+--- a/package.json
++++ b/package.json
+@@ -39,6 +39,7 @@
+     "mongodb": "^2.1.18",
+     "mongoose": "^4.5.0",
+     "nconf": "0.8.4",
++    "node-sass": "^3.10.0",
+     "nodemailer": "^2.5.0",
+     "request": "2.70.0",
+     "slack-notify": "^0.1.6",

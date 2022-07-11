@@ -1,0 +1,180 @@
+From 67fe48da2087810e092fe4cca808daf59a67f5ab Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Thu, 22 Sep 2016 16:38:49 +0200
+Subject: [PATCH 1/2] fixes undefined variables
+
+---
+ controllers/api/v1/fc.controller.js          | 4 ++--
+ controllers/dashboard/fields.controller.js   | 4 ++--
+ controllers/dashboard/routes.controller.js   | 7 ++++---
+ controllers/dashboard/services.controller.js | 2 +-
+ controllers/dashboard/tokens.controller.js   | 4 ++--
+ routes/api/v1/index.js                       | 2 +-
+ services/apir.service.js                     | 4 ++--
+ 7 files changed, 14 insertions(+), 13 deletions(-)
+
+diff --git a/controllers/api/v1/fc.controller.js b/controllers/api/v1/fc.controller.js
+index f2e224b2..5a33dfb7 100644
+--- a/controllers/api/v1/fc.controller.js
++++ b/controllers/api/v1/fc.controller.js
+@@ -62,10 +62,10 @@ function FcController(options) {
+           }
+           if (req.query.devMode === "WITH_ENDOFNIR") {
+             if (req.query.endOfNir) {
+-              return ApirServiceInstance.putEndOfNir(identity, req.query.endOfNir);
++              return ApirService.putEndOfNir(identity, req.query.endOfNir);
+             }
+             else {
+-              return ApirServiceInstance.getEndOfNir(identity);
++              return ApirService.getEndOfNir(identity);
+             }
+           }
+           else {
+diff --git a/controllers/dashboard/fields.controller.js b/controllers/dashboard/fields.controller.js
+index 69f9d2d4..3d7827f1 100644
+--- a/controllers/dashboard/fields.controller.js
++++ b/controllers/dashboard/fields.controller.js
+@@ -15,14 +15,14 @@ function FieldsController(options) {
+   const DataModel = new dataModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     if (req.data.route.fields.length == 0)
+       return res.redirect('/dashboard/services/' + req.data.service.nameNormalized + '/routes/' + req.data.route.nameNormalized + '/fields/new');
+     FieldModel.io.find({route: req.data.route})
+       .sort({createdAt: -1})
+       .exec(function(err, fields) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/fields/index', {
+           page: 'pages/dashboard/fields/index',
+           csrfToken: req.csrfToken(),
+diff --git a/controllers/dashboard/routes.controller.js b/controllers/dashboard/routes.controller.js
+index c5246b8c..fad7fb04 100644
+--- a/controllers/dashboard/routes.controller.js
++++ b/controllers/dashboard/routes.controller.js
+@@ -19,12 +19,12 @@ function RoutesController(options) {
+   const RelationModel = new relationModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     RouteModel.io.find({service: req.data.service})
+       .sort({createdAt: -1})
+       .exec(function(err, routes) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/routes/index', {
+           page: 'pages/dashboard/routes/index',
+           csrfToken: req.csrfToken(),
+@@ -129,6 +129,7 @@ function RoutesController(options) {
+       }
+     ], function(err, result) {
+       if (err)
++        // TODO: this wont work, self is not defined
+         return self.destroy(err);
+       return res.render('pages/dashboard/routes/view', {
+         page: 'pages/dashboard/routes/view',
+@@ -236,7 +237,7 @@ function RoutesController(options) {
+       return next();
+     });
+   };
+-  
++
+   this.getRouteData = function(req, res, next) {
+     RouteModel.io.findOne({
+       service: req.data.service,
+diff --git a/controllers/dashboard/services.controller.js b/controllers/dashboard/services.controller.js
+index f05acbdd..60887a0b 100644
+--- a/controllers/dashboard/services.controller.js
++++ b/controllers/dashboard/services.controller.js
+@@ -150,7 +150,7 @@ function ServicesController(options) {
+     });
+   };
+ 
+-  this.revokeUser = function(req, res) {
++  this.revokeUser = function(req, res, next) {
+     const userEmail = req.params.userEmail;
+     UserModel.io.findOne({
+       email: userEmail
+diff --git a/controllers/dashboard/tokens.controller.js b/controllers/dashboard/tokens.controller.js
+index e5b11449..1470b33c 100644
+--- a/controllers/dashboard/tokens.controller.js
++++ b/controllers/dashboard/tokens.controller.js
+@@ -12,12 +12,12 @@ function TokensController(options) {
+   const TokenModel = new tokenModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     TokenModel.io.find({service: req.data.service})
+       .sort({createdAt: -1})
+       .exec(function(err, tokens) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/tokens/index', {
+           page: 'pages/dashboard/tokens/index',
+           csrfToken: req.csrfToken(),
+diff --git a/routes/api/v1/index.js b/routes/api/v1/index.js
+index 4627d3f3..fb3931f6 100644
+--- a/routes/api/v1/index.js
++++ b/routes/api/v1/index.js
+@@ -19,7 +19,7 @@ module.exports = function (options) {
+   const RoutesController = new routesController(options);
+   const FieldsController = new fieldsController(options);
+   const DatasController = new datasController(options);
+- 
++
+   router.all('/*', function(req, res, next) {
+     res._jsonapi = {
+       version: "1.0"
+diff --git a/services/apir.service.js b/services/apir.service.js
+index dc02f85e..7e60e09c 100644
+--- a/services/apir.service.js
++++ b/services/apir.service.js
+@@ -21,7 +21,7 @@ function ApirService(options) {
+ 
+   this.getEndOfNir = function(idp)
+   {
+-    const idpHash = idpToHash(idp);
++    const idpHash = this.idpToHash(idp);
+ 
+     return new Promise(function(resolve, reject) {
+       request
+@@ -50,7 +50,7 @@ function ApirService(options) {
+ 
+   this.putEndOfNir =  function(idp, endOfNir)
+   {
+-    const idpHash = idpToHash(idp);
++    const idpHash = this.idpToHash(idp);
+ 
+     return new Promise(function(resolve, reject) {
+       request
+
+From b9e24681b8e33d8df3c0c092c8475f43534ebe22 Mon Sep 17 00:00:00 2001
+From: Jean-Michel Gigault <jgigault@student.42.fr>
+Date: Sat, 24 Sep 2016 16:42:09 +0200
+Subject: [PATCH 2/2] fix error management
+
+---
+ controllers/dashboard/routes.controller.js | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/controllers/dashboard/routes.controller.js b/controllers/dashboard/routes.controller.js
+index fad7fb04..7664169d 100644
+--- a/controllers/dashboard/routes.controller.js
++++ b/controllers/dashboard/routes.controller.js
+@@ -129,8 +129,7 @@ function RoutesController(options) {
+       }
+     ], function(err, result) {
+       if (err)
+-        // TODO: this wont work, self is not defined
+-        return self.destroy(err);
++        return next({code: 500});
+       return res.render('pages/dashboard/routes/view', {
+         page: 'pages/dashboard/routes/view',
+         csrfToken: req.csrfToken(),

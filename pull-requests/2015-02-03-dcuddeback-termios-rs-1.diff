@@ -1,0 +1,73 @@
+diff --git a/src/ffi.rs b/src/ffi.rs
+index 4b787e5..941b7c4 100644
+--- a/src/ffi.rs
++++ b/src/ffi.rs
+@@ -1,4 +1,3 @@
+-#[allow(unstable)]
+ extern crate libc;
+ use self::libc::{c_void,c_int};
+ 
+@@ -23,10 +22,7 @@ extern "C" {
+ 
+ #[cfg(target_os = "linux")]
+ mod os {
+-  #[allow(unstable)]
+-  extern crate libc;
+-
+-  use self::libc::{c_int,c_uint,c_uchar};
++  use super::libc::{c_int,c_uint,c_uchar};
+ 
+   #[allow(non_camel_case_types)]
+   pub type cc_t = c_uchar;
+@@ -37,7 +33,7 @@ mod os {
+   #[allow(non_camel_case_types)]
+   pub type tcflag_t = c_uint;
+ 
+-  #[derive(Show,Copy)]
++  #[derive(Debug,Copy,Eq,PartialEq)]
+   #[repr(C)]
+   pub struct Termios {
+     pub c_iflag: tcflag_t,
+@@ -212,10 +208,7 @@ mod os {
+ 
+ #[cfg(target_os = "macos")]
+ mod os {
+-  #[allow(unstable)]
+-  extern crate libc;
+-
+-  use self::libc::{c_int,c_uchar,c_ulong};
++  use super::libc::{c_int,c_uchar,c_ulong};
+ 
+   #[allow(non_camel_case_types)]
+   pub type tcflag_t = c_ulong;
+@@ -226,7 +219,7 @@ mod os {
+   #[allow(non_camel_case_types)]
+   pub type speed_t = c_ulong;
+ 
+-  #[derive(Show,Copy)]
++  #[derive(Show,Copy,Eq,PartialEq)]
+   #[repr(C)]
+   pub struct Termios {
+     pub c_iflag: tcflag_t,
+diff --git a/src/lib.rs b/src/lib.rs
+index 8cbd684..8cd4574 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1,8 +1,7 @@
+-#[allow(unstable)]
+ extern crate libc;
+ 
+ use self::libc::{c_int};
+-use std::io::{IoError,IoResult};
++use std::old_io::{IoError,IoResult};
+ use std::mem;
+ use std::default::Default;
+ 
+@@ -93,7 +92,6 @@ pub fn cfsetspeed(termios: &mut Termios, speed: speed_t) -> IoResult<()> {
+ 
+ 
+ #[inline]
+-#[allow(unstable)]
+ fn io_result(result: c_int) -> IoResult<()> {
+   match result {
+     0 => Ok(()),

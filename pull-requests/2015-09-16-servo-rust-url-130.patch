@@ -1,0 +1,23 @@
+From 1524703c842b941aa4216bb34f5e79a5680c5354 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Wed, 16 Sep 2015 11:03:59 +0200
+Subject: [PATCH] adds docs for form_urlencoded::parse
+
+---
+ src/form_urlencoded.rs | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/form_urlencoded.rs b/src/form_urlencoded.rs
+index 257164fc1..652090304 100644
+--- a/src/form_urlencoded.rs
++++ b/src/form_urlencoded.rs
+@@ -23,6 +23,9 @@ use percent_encoding::{percent_encode_to, percent_decode, FORM_URLENCODED_ENCODE
+ /// into a vector of (name, value) pairs.
+ ///
+ /// Use `parse(input.as_bytes())` to parse a `&str` string.
++///
++/// The names and values are URL-decoded. For instance, `%23first=%25try%25` will be
++/// converted to `[("#first", "%try%")]`.
+ #[inline]
+ pub fn parse(input: &[u8]) -> Vec<(String, String)> {
+     parse_internal(input, EncodingOverride::utf8(), false).unwrap()

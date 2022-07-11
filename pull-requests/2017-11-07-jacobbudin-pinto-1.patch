@@ -1,0 +1,31 @@
+From 68c3a8beb96a55c477fb833c661dfb061efb4d12 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Tue, 7 Nov 2017 22:28:16 +0000
+Subject: [PATCH] fixes limit/offset syntax error
+
+---
+ src/lib.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index eadc3be..ac0a29f 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -404,7 +404,7 @@ pub mod query_builder {
+             }
+ 
+             if self.offset != 0 {
+-                query += ", ";
++                query += " OFFSET ";
+                 query += self.offset.to_string().as_str();
+             }
+ 
+@@ -580,7 +580,7 @@ mod tests {
+             .limit(15)
+             .offset(30)
+             .build();
+-        assert_eq!("SELECT id, name FROM users LIMIT 15, 30;", query);
++        assert_eq!("SELECT id, name FROM users LIMIT 15 OFFSET 30;", query);
+     }
+ 
+     #[test]

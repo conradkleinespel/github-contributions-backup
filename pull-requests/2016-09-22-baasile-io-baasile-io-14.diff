@@ -1,0 +1,142 @@
+diff --git a/controllers/api/v1/fc.controller.js b/controllers/api/v1/fc.controller.js
+index f2e224b2..5a33dfb7 100644
+--- a/controllers/api/v1/fc.controller.js
++++ b/controllers/api/v1/fc.controller.js
+@@ -62,10 +62,10 @@ function FcController(options) {
+           }
+           if (req.query.devMode === "WITH_ENDOFNIR") {
+             if (req.query.endOfNir) {
+-              return ApirServiceInstance.putEndOfNir(identity, req.query.endOfNir);
++              return ApirService.putEndOfNir(identity, req.query.endOfNir);
+             }
+             else {
+-              return ApirServiceInstance.getEndOfNir(identity);
++              return ApirService.getEndOfNir(identity);
+             }
+           }
+           else {
+diff --git a/controllers/dashboard/fields.controller.js b/controllers/dashboard/fields.controller.js
+index 69f9d2d4..3d7827f1 100644
+--- a/controllers/dashboard/fields.controller.js
++++ b/controllers/dashboard/fields.controller.js
+@@ -15,14 +15,14 @@ function FieldsController(options) {
+   const DataModel = new dataModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     if (req.data.route.fields.length == 0)
+       return res.redirect('/dashboard/services/' + req.data.service.nameNormalized + '/routes/' + req.data.route.nameNormalized + '/fields/new');
+     FieldModel.io.find({route: req.data.route})
+       .sort({createdAt: -1})
+       .exec(function(err, fields) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/fields/index', {
+           page: 'pages/dashboard/fields/index',
+           csrfToken: req.csrfToken(),
+diff --git a/controllers/dashboard/routes.controller.js b/controllers/dashboard/routes.controller.js
+index c5246b8c..7664169d 100644
+--- a/controllers/dashboard/routes.controller.js
++++ b/controllers/dashboard/routes.controller.js
+@@ -19,12 +19,12 @@ function RoutesController(options) {
+   const RelationModel = new relationModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     RouteModel.io.find({service: req.data.service})
+       .sort({createdAt: -1})
+       .exec(function(err, routes) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/routes/index', {
+           page: 'pages/dashboard/routes/index',
+           csrfToken: req.csrfToken(),
+@@ -129,7 +129,7 @@ function RoutesController(options) {
+       }
+     ], function(err, result) {
+       if (err)
+-        return self.destroy(err);
++        return next({code: 500});
+       return res.render('pages/dashboard/routes/view', {
+         page: 'pages/dashboard/routes/view',
+         csrfToken: req.csrfToken(),
+@@ -236,7 +236,7 @@ function RoutesController(options) {
+       return next();
+     });
+   };
+-  
++
+   this.getRouteData = function(req, res, next) {
+     RouteModel.io.findOne({
+       service: req.data.service,
+diff --git a/controllers/dashboard/services.controller.js b/controllers/dashboard/services.controller.js
+index f05acbdd..60887a0b 100644
+--- a/controllers/dashboard/services.controller.js
++++ b/controllers/dashboard/services.controller.js
+@@ -150,7 +150,7 @@ function ServicesController(options) {
+     });
+   };
+ 
+-  this.revokeUser = function(req, res) {
++  this.revokeUser = function(req, res, next) {
+     const userEmail = req.params.userEmail;
+     UserModel.io.findOne({
+       email: userEmail
+diff --git a/controllers/dashboard/tokens.controller.js b/controllers/dashboard/tokens.controller.js
+index e5b11449..1470b33c 100644
+--- a/controllers/dashboard/tokens.controller.js
++++ b/controllers/dashboard/tokens.controller.js
+@@ -12,12 +12,12 @@ function TokensController(options) {
+   const TokenModel = new tokenModel(options);
+   const FlashHelper = new flashHelper(options);
+ 
+-  this.index = function(req, res) {
++  this.index = function(req, res, next) {
+     TokenModel.io.find({service: req.data.service})
+       .sort({createdAt: -1})
+       .exec(function(err, tokens) {
+         if (err)
+-          next(err);
++          return next(err);
+         return res.render('pages/dashboard/tokens/index', {
+           page: 'pages/dashboard/tokens/index',
+           csrfToken: req.csrfToken(),
+diff --git a/routes/api/v1/index.js b/routes/api/v1/index.js
+index 4627d3f3..fb3931f6 100644
+--- a/routes/api/v1/index.js
++++ b/routes/api/v1/index.js
+@@ -19,7 +19,7 @@ module.exports = function (options) {
+   const RoutesController = new routesController(options);
+   const FieldsController = new fieldsController(options);
+   const DatasController = new datasController(options);
+- 
++
+   router.all('/*', function(req, res, next) {
+     res._jsonapi = {
+       version: "1.0"
+diff --git a/services/apir.service.js b/services/apir.service.js
+index dc02f85e..7e60e09c 100644
+--- a/services/apir.service.js
++++ b/services/apir.service.js
+@@ -21,7 +21,7 @@ function ApirService(options) {
+ 
+   this.getEndOfNir = function(idp)
+   {
+-    const idpHash = idpToHash(idp);
++    const idpHash = this.idpToHash(idp);
+ 
+     return new Promise(function(resolve, reject) {
+       request
+@@ -50,7 +50,7 @@ function ApirService(options) {
+ 
+   this.putEndOfNir =  function(idp, endOfNir)
+   {
+-    const idpHash = idpToHash(idp);
++    const idpHash = this.idpToHash(idp);
+ 
+     return new Promise(function(resolve, reject) {
+       request

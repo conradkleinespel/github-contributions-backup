@@ -1,0 +1,27 @@
+From 5e3165e1889f199a80e23f08a86cc995a3b0d629 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 8 Jun 2015 11:02:44 +0200
+Subject: [PATCH] adds "oio" prefix to "event-agent" binary
+
+---
+ python/CMakeLists.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/python/CMakeLists.txt b/python/CMakeLists.txt
+index 11c09b11eb..d022207be3 100644
+--- a/python/CMakeLists.txt
++++ b/python/CMakeLists.txt
+@@ -1,3 +1,6 @@
++if (NOT DEFINED EXE_PREFIX)
++	set(EXE_PREFIX "oio")
++endif ()
+ 
+ set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
+ set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
+@@ -48,4 +51,4 @@ install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SETUP_PY} install -
+ 
+ 
+ install(PROGRAMS    ${CMAKE_CURRENT_BINARY_DIR}/${EXE_PREFIX}-event-agent
+-                DESTINATION bin)
+\ No newline at end of file
++                DESTINATION bin)

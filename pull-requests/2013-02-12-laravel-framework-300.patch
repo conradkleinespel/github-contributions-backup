@@ -1,0 +1,29 @@
+From 936fb0518e4a3d80f1dc4ff4c788bcbebb1078b9 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Tue, 12 Feb 2013 21:20:45 +0100
+Subject: [PATCH] Update src/Illuminate/Auth/Reminders/PasswordBroker.php
+
+---
+ src/Illuminate/Auth/Reminders/PasswordBroker.php | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/Illuminate/Auth/Reminders/PasswordBroker.php b/src/Illuminate/Auth/Reminders/PasswordBroker.php
+index 6e5bc0e9029..3fbbe00d1b1 100644
+--- a/src/Illuminate/Auth/Reminders/PasswordBroker.php
++++ b/src/Illuminate/Auth/Reminders/PasswordBroker.php
+@@ -214,7 +214,7 @@ public function getUser(array $credentials)
+ 
+ 		if ($user and ! $user instanceof RemindableInterface)
+ 		{
+-			throw new \UnexpectedValueException("User must implement Contactable interface.");
++			throw new \UnexpectedValueException("User must implement Remindable interface.");
+ 		}
+ 
+ 		return $user;
+@@ -260,4 +260,4 @@ protected function getConfirmedPassword()
+ 		return $this->getRequest()->input('password_confirmation');
+ 	}
+ 
+-}
+\ No newline at end of file
++}

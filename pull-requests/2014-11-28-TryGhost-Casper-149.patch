@@ -1,0 +1,24 @@
+From 1292f2e22b5ef335103bd74638806f5edad2fc9c Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sat, 29 Nov 2014 00:09:46 +0100
+Subject: [PATCH] support for pastebin
+
+---
+ assets/css/screen.css | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/assets/css/screen.css b/assets/css/screen.css
+index 4db702b12d..dbf774312d 100644
+--- a/assets/css/screen.css
++++ b/assets/css/screen.css
+@@ -1198,6 +1198,10 @@ body:not(.post-template) .post-title {
+     font-size: 1.1rem;
+ }
+ 
++/* Pastebin */
++.content .embedPastebin {
++    margin-bottom: 1.75em;
++}
+ 
+ /* ==========================================================================
+    8. Pagination - Tools to let you flick between pages

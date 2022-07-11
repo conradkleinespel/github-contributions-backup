@@ -1,0 +1,65 @@
+diff --git a/lib/postmark/clientDefaults.js b/lib/postmark/clientDefaults.js
+index 838a02ab..ed4b9212 100644
+--- a/lib/postmark/clientDefaults.js
++++ b/lib/postmark/clientDefaults.js
+@@ -1,10 +1,10 @@
+-var rev = require('git-rev');
+ var sha = 'unknown revision';
+ var version = require('../../package.json').version;
++var exec = require('child_process').exec
+ 
+-rev.long(function(longSha) {
+-  sha = longSha || 'unknown revision';
+-});
++exec('git rev-parse HEAD', { cwd: __dirname }, function (err, stdout, stderr) {
++  sha = stdout.split('\n').join('') || 'unknown revision'
++})
+ 
+ /**
+  * The defaults used for the construction of new clients.
+@@ -101,4 +101,4 @@ var ClientDefaults = {
+   }
+ };
+ 
+-module.exports = ClientDefaults;
+\ No newline at end of file
++module.exports = ClientDefaults;
+diff --git a/package.json b/package.json
+index 6d5869bf..788d5fc5 100644
+--- a/package.json
++++ b/package.json
+@@ -6,7 +6,7 @@
+         "utility",
+         "postmark"
+     ],
+-    "version": "1.3.1",
++    "version": "1.3.2",
+     "author": "Chris Williams <voodootikigod@gmail.com>",
+     "contributors": [
+         "Aaron Blum",
+@@ -63,7 +63,6 @@
+         "pre-commit": "1.0.2"
+     },
+     "dependencies": {
+-        "git-rev": "0.2.1",
+         "merge": "1.2.0"
+     }
+ }
+diff --git a/testing_keys.json.example b/testing_keys.json.example
+index cc0a813e..e88469d6 100644
+--- a/testing_keys.json.example
++++ b/testing_keys.json.example
+@@ -6,9 +6,9 @@
+ 	"WRITE_ACCOUNT_TOKEN" : "<token>",
+ 	"WRITE_TEST_SERVER_TOKEN" : "<token>",
+ 	"WRITE_TEST_SENDER_EMAIL_ADDRESS" : "apps@example.com",
+-	"WRITE_TEST_SENDER_SIGNATURE_PROTOTYPE": "anything+[TOKEN]@exmaple.com",
++	"WRITE_TEST_SENDER_SIGNATURE_PROTOTYPE": "anything+[TOKEN]@example.com",
+ 	"WRITE_TEST_EMAIL_RECIPIENT_ADDRESS" : "andrew+testing@example.com",
+ 	"WRITE_TEST_DOMAIN_NAME" : "domain-verification.pstmrk.it",
+-	
++
+ 	"BASE_URL" : "https://api.postmarkapp.com"
+-}
+\ No newline at end of file
++}

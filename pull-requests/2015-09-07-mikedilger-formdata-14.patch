@@ -1,0 +1,22 @@
+From ab245c7c4ab50e388b74eb96835bb6cd0571e0ac Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 7 Sep 2015 05:18:24 +0200
+Subject: [PATCH] README.md: fixes output formatting in examples
+
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index f8ebd44..1351534 100644
+--- a/README.md
++++ b/README.md
+@@ -27,7 +27,7 @@ for (name, value) in form_data.fields {
+ }
+ 
+ for (name, file) in form_data.files {
+-    println!("Posted file name={} filename={} content_type={} size={} temporary_path={}",
++    println!("Posted file name={} filename={:?} content_type={} size={} temporary_path={:?}",
+              name, file.filename, file.content_type, file.size, file.path);
+ }
+ 

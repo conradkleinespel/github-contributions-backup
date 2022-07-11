@@ -1,0 +1,20 @@
+diff --git a/src/Illuminate/Auth/Reminders/PasswordBroker.php b/src/Illuminate/Auth/Reminders/PasswordBroker.php
+index 6e5bc0e9029..3fbbe00d1b1 100644
+--- a/src/Illuminate/Auth/Reminders/PasswordBroker.php
++++ b/src/Illuminate/Auth/Reminders/PasswordBroker.php
+@@ -214,7 +214,7 @@ public function getUser(array $credentials)
+ 
+ 		if ($user and ! $user instanceof RemindableInterface)
+ 		{
+-			throw new \UnexpectedValueException("User must implement Contactable interface.");
++			throw new \UnexpectedValueException("User must implement Remindable interface.");
+ 		}
+ 
+ 		return $user;
+@@ -260,4 +260,4 @@ protected function getConfirmedPassword()
+ 		return $this->getRequest()->input('password_confirmation');
+ 	}
+ 
+-}
+\ No newline at end of file
++}

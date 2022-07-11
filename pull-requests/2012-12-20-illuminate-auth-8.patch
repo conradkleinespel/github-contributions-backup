@@ -1,0 +1,29 @@
+From 0d4ac8faf5be78c598eb2551b92c1cbcd1aae2af Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Thu, 20 Dec 2012 16:02:18 +0100
+Subject: [PATCH] Fix typo.
+
+---
+ src/Illuminate/Auth/EloquentUserProvider.php | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/Illuminate/Auth/EloquentUserProvider.php b/src/Illuminate/Auth/EloquentUserProvider.php
+index 7cfcb8f56..773265036 100644
+--- a/src/Illuminate/Auth/EloquentUserProvider.php
++++ b/src/Illuminate/Auth/EloquentUserProvider.php
+@@ -32,7 +32,7 @@ public function __construct(HasherInterface $hasher, $model)
+ 	}
+ 
+ 	/**
+-	 * Retrieve a user by their unique idenetifier.
++	 * Retrieve a user by their unique identifier.
+ 	 *
+ 	 * @param  mixed  $identifier
+ 	 * @return Illuminate\Auth\UserInterface|null
+@@ -89,4 +89,4 @@ public function createModel()
+ 		return new $class;
+ 	}
+ 
+-}
+\ No newline at end of file
++}

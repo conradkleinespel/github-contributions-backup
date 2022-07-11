@@ -1,0 +1,30 @@
+From 3533a63a2eea85e5015f34c1fbc4815141627d07 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conrad.kleinespel@memo.bank>
+Date: Tue, 22 Jun 2021 16:57:48 +0200
+Subject: [PATCH] docs(stats): Fix halyard command to enable/disable telemetry
+
+---
+ community/stats/index.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/community/stats/index.md b/community/stats/index.md
+index 281b1b10d3..cc4643889e 100644
+--- a/community/stats/index.md
++++ b/community/stats/index.md
+@@ -44,14 +44,14 @@ The above payload is sent to `https://stats.spinnaker.io/log` upon the completio
+ For release 1.18.x, telemetry is opt-in, as we test and scale the system and fine-tune the dashboards. Spinnaker administrators can help by turning **on** data collection by executing
+ 
+ ```
+-hal config telemetry enable
++hal config stats enable
+ ```
+ and redeploying.
+ 
+ As of 1.19.0+, telemetry will be enabled by default. Spinnaker administrators can turn **off** data collection by executing
+ 
+ ```
+-hal config telemetry disable
++hal config stats disable
+ ```
+ and redeploying.
+ 

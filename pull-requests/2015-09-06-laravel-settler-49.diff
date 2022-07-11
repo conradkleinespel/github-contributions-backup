@@ -1,0 +1,13 @@
+diff --git a/scripts/provision.sh b/scripts/provision.sh
+index 957204f..6118316 100644
+--- a/scripts/provision.sh
++++ b/scripts/provision.sh
+@@ -35,7 +35,7 @@ apt-get update
+ # Install Some Basic Packages
+ 
+ apt-get install -y build-essential dos2unix gcc git libmcrypt4 libpcre3-dev \
+-make python2.7-dev python-pip re2c supervisor unattended-upgrades whois vim
++make python2.7-dev python-pip re2c supervisor unattended-upgrades whois vim libnotify-bin
+ 
+ # Set My Timezone
+ 

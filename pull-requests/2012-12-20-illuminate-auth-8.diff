@@ -1,0 +1,20 @@
+diff --git a/src/Illuminate/Auth/EloquentUserProvider.php b/src/Illuminate/Auth/EloquentUserProvider.php
+index 7cfcb8f56..773265036 100644
+--- a/src/Illuminate/Auth/EloquentUserProvider.php
++++ b/src/Illuminate/Auth/EloquentUserProvider.php
+@@ -32,7 +32,7 @@ public function __construct(HasherInterface $hasher, $model)
+ 	}
+ 
+ 	/**
+-	 * Retrieve a user by their unique idenetifier.
++	 * Retrieve a user by their unique identifier.
+ 	 *
+ 	 * @param  mixed  $identifier
+ 	 * @return Illuminate\Auth\UserInterface|null
+@@ -89,4 +89,4 @@ public function createModel()
+ 		return new $class;
+ 	}
+ 
+-}
+\ No newline at end of file
++}

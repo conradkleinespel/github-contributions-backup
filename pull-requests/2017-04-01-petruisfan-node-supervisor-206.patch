@@ -1,0 +1,22 @@
+From d3685e84da4653ed0ac33c315278c14e51595e30 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sat, 1 Apr 2017 21:19:59 +0200
+Subject: [PATCH] fixes license string in sampleApp
+
+---
+ test/sampleApp/package.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test/sampleApp/package.json b/test/sampleApp/package.json
+index bba44dc..bf21762 100644
+--- a/test/sampleApp/package.json
++++ b/test/sampleApp/package.json
+@@ -7,7 +7,7 @@
+     "test": "echo \"Error: no test specified\" && exit 1"
+   },
+   "author": "Petru Isfan",
+-  "license": "Apache2",
++  "license": "Apache-2.0",
+   "dependencies": {
+     "express": "^4.12.3"
+   }

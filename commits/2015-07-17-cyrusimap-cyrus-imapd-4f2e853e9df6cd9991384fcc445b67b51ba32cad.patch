@@ -1,0 +1,92 @@
+From 4f2e853e9df6cd9991384fcc445b67b51ba32cad Mon Sep 17 00:00:00 2001
+From: Conrad KLEINESPEL <conradk@conradk.com>
+Date: Fri, 17 Jul 2015 14:15:18 +1000
+Subject: [PATCH] removes outdated references to --with-auth configure option
+
+Summary:
+Updates documentation to reflect removal of the --with-auth configure option:
+https://git.cyrus.foundation/rI75f3d63e457577c8a562de8d00ef6e773649d47e
+
+Test Plan: Compile to check configure script still works.
+
+Reviewers: #imap_reviewers
+
+Differential Revision: https://git.cyrus.foundation/D67
+---
+ SMakefile                |  1 -
+ configure.ac             |  2 +-
+ doc/install-compile.html | 20 --------------------
+ doc/overview.html        |  4 +---
+ 4 files changed, 2 insertions(+), 25 deletions(-)
+
+diff --git a/SMakefile b/SMakefile
+index dca4ea50e4..8dfc09956d 100644
+--- a/SMakefile
++++ b/SMakefile
+@@ -118,7 +118,6 @@ esac
+ 
+ # settings; we have to disable these on some platforms
+ DEBUG=""
+-WITHAUTH="--with-auth=pts --with-afs=/usr/local --enable-krb5afspts --without-krbdes"
+ SSL_CONFIG="--with-openssl=/usr/local/lib"
+ 
+ # the defaults are good enough for us
+diff --git a/configure.ac b/configure.ac
+index 5e8156ac85..cee625798f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -940,7 +940,7 @@ if test "$with_krbdes" = "yes"; then
+       else
+           KRB_LIBS="-ldes"
+       fi,
+-  AC_MSG_ERROR([The Kerberos DES library is required for Kerberos support.  You might want --with-auth=unix.]))
++  AC_MSG_ERROR([The Kerberos DES library is required for Kerberos support.]))
+ fi
+ fi
+ 
+diff --git a/doc/install-compile.html b/doc/install-compile.html
+index 4883fb4086..a3a0badc20 100644
+--- a/doc/install-compile.html
++++ b/doc/install-compile.html
+@@ -69,26 +69,6 @@ <h2>Options to <kbd>configure</kbd></h2>
+ <dt><tt>--help</tt>
+ <dd>Print a summary of the options to "<tt>configure</tt>", and exit. <P>
+ 
+-<dt><tt>--with-auth=METHOD</tt>
+-<dd>Specifies the authorization (group membership) module to use.
+-Currently implemented authorization modules are:
+-<dl compact>
+-<DT><tt>unix</tt>
+-<DD>Unix <tt>/etc/passwd</tt> and <tt>/etc/group</tt> file
+-<DT><tt>krb</tt>
+-<DD>Kerberos principals (requires Kerberos libraries).  Optionally,
+-specify where to find Kerberos v4 with "<tt>--with-krb=DIR</tt>"
+-<B>IMPORTANT:</B> The Kerberos v4 support requires the DES library.
+-Some vendor distributions of Kerberos, including the one with Solaris,
+-do not have this support and cannot be used.
+-<DT><tt>krb_pts</tt>
+-<DD>Kerberos principals with AFS PTserver groups (requires Kerberos
+-and AFS libraries).  Optionally, specify where the AFS libraries are
+-found with "<tt>--with-afs=PATH</tt>".  Also requires krb support as above.
+-</dl>
+-Any method of authenticating with SASL can be used with any
+-authorization module.<P>
+-
+ <dt><tt>--with-krb=PATH</tt>
+ <dd>Specifies where to find the Kerberos library.<P>
+ 
+diff --git a/doc/overview.html b/doc/overview.html
+index 7506906143..e4e4ce6d4b 100644
+--- a/doc/overview.html
++++ b/doc/overview.html
+@@ -244,9 +244,7 @@ <H3><A name="aclident">Identifiers</A></H3>
+ for which the entry applies.
+ 
+ <p>There are two special identifiers,
+-"anonymous", and "anyone", which are explained below.  The meaning of
+-other identifiers usually depends on the authorization mechanism being used
+-(selected by <tt>--with-auth</tt> at compile time, defaulting to Unix).
++"anonymous", and "anyone", which are explained below.</p>
+ 
+ <H4><A NAME="aclany">"<TT>anonymous</TT>" and "<TT>anyone</TT>"</A></H4>
+ 

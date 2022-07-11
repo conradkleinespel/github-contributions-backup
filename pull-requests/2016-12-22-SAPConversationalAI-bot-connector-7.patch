@@ -1,0 +1,31 @@
+From 39b7d9bc1781bd63ad6c555741a9ca69b5431643 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Thu, 22 Dec 2016 17:18:58 +0100
+Subject: [PATCH] fixes readme install instructions
+
+---
+ README.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 0cc70dc..cc7b428 100644
+--- a/README.md
++++ b/README.md
+@@ -8,7 +8,7 @@ It provides a higher level API to manage several messaging platforms at once, an
+ 
+ ## Documentation
+ 
+-You can see the API documentation [here](https://recastai.github.io/bot-connector/) 
++You can see the API documentation [here](https://recastai.github.io/bot-connector/)
+ 
+ Or generate the documentation with the following command:
+ ```bash
+@@ -54,7 +54,7 @@ Clone the repository and install the dependencies
+ 
+ ```sh
+ git clone https://github.com/RecastAI/bot-connector.git
+-cd connector
++cd bot-connector
+ yarn install
+ ```
+ 

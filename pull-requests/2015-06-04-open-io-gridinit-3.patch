@@ -1,0 +1,22 @@
+From fe8213c1c0ff9b5b98222d3da2a2641f2ef5e864 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Thu, 4 Jun 2015 15:06:39 +0200
+Subject: [PATCH] fixes logic error when looking for executable file
+
+---
+ lib/children.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/children.c b/lib/children.c
+index 8dc9b11..0920ab6 100644
+--- a/lib/children.c
++++ b/lib/children.c
+@@ -364,7 +364,7 @@ _child_exec(struct child_s *sd, int argc, char ** args)
+ 	if (g_path_is_absolute(cmd))
+ 		real_cmd = g_strdup(cmd);
+ 
+-	if (!real_cmd || NULL == (real_cmd = g_find_program_in_path(cmd)))
++	if (!real_cmd && NULL == (real_cmd = g_find_program_in_path(cmd)))
+ 		FATAL("'%s' not executable or not found in PATH:%s", cmd, g_getenv("PATH"));
+ 	else {
+ 		execve(real_cmd, args, env);

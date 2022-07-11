@@ -1,0 +1,29 @@
+From d38f11bcaeac575a5f95fb40b06fbb6934171057 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 8 Jun 2018 09:34:57 +0000
+Subject: [PATCH] updates archlinux install instructions
+
+---
+ README.md | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/README.md b/README.md
+index 92b40f47e..29fcc3ec1 100644
+--- a/README.md
++++ b/README.md
+@@ -83,13 +83,10 @@ binary builds and Debian packages.
+ 
+ #### On Arch Linux
+ 
+-You can install [the AUR package](https://aur.archlinux.org/packages/bat/)
+-via yaourt, or manually:
++You can install via Pacman:
+ 
+ ```bash
+-git clone https://aur.archlinux.org/bat.git
+-cd bat
+-makepkg -si
++pacman -S bat
+ ```
+ 
+ #### On FreeBSD

@@ -1,0 +1,45 @@
+From 65c477edb4d10e45d9a116d7b3f20f656e90cf5d Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Tue, 12 Feb 2013 21:42:01 +0100
+Subject: [PATCH 1/2] Update src/Illuminate/Database/Eloquent/Model.php
+
+---
+ src/Illuminate/Database/Eloquent/Model.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Illuminate/Database/Eloquent/Model.php b/src/Illuminate/Database/Eloquent/Model.php
+index fb4913f4d63..1dd0b05e4c3 100644
+--- a/src/Illuminate/Database/Eloquent/Model.php
++++ b/src/Illuminate/Database/Eloquent/Model.php
+@@ -162,7 +162,7 @@ public function fill(array $attributes)
+ 			// assignment to the model, and all others will just be ignored.
+ 			if ($this->isFillable($key))
+ 			{
+-				$this->$key = $value;
++				$this->setAttribute($key, $value);
+ 			}
+ 		}
+ 
+
+From f6c3e013d0065250bd06e6e43df07d4ca2f711a2 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Wed, 13 Feb 2013 00:05:39 +0100
+Subject: [PATCH 2/2] Update src/Illuminate/Database/Eloquent/Model.php
+
+---
+ src/Illuminate/Database/Eloquent/Model.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Illuminate/Database/Eloquent/Model.php b/src/Illuminate/Database/Eloquent/Model.php
+index 1dd0b05e4c3..1f8d860e64d 100644
+--- a/src/Illuminate/Database/Eloquent/Model.php
++++ b/src/Illuminate/Database/Eloquent/Model.php
+@@ -581,7 +581,7 @@ protected function performInsert($query)
+ 		{
+ 			$keyName = $this->getKeyName();
+ 
+-			$this->$keyName = $query->insertGetId($attributes, $keyName);
++			$this->setAttribute($keyName, $query->insertGetId($attributes, $keyName));
+ 		}
+ 
+ 		// If the table is not incrementing we'll simply insert this attirbutes as they

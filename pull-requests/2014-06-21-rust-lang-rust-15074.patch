@@ -1,0 +1,22 @@
+From 8bcfabaeac4374e374f473c048b9b03f468685da Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sat, 21 Jun 2014 12:31:10 +0200
+Subject: [PATCH] replace reference to ~"string" with box "string"
+
+---
+ src/librustc/middle/typeck/check/mod.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/librustc/middle/typeck/check/mod.rs b/src/librustc/middle/typeck/check/mod.rs
+index 7b16248c2e6a2..c5a7fe7e206dc 100644
+--- a/src/librustc/middle/typeck/check/mod.rs
++++ b/src/librustc/middle/typeck/check/mod.rs
+@@ -2651,7 +2651,7 @@ fn check_expr_with_unifier(fcx: &FnCtxt,
+                     let error = if vst == ast::ExprVstoreSlice {
+                         "`&\"string\"` has been removed; use `\"string\"` instead"
+                     } else {
+-                        "`~\"string\"` has been removed; use `\"string\".to_string()` instead"
++                        "`box \"string\"` has been removed; use `\"string\".to_string()` instead"
+                     };
+                     tcx.sess.span_err(expr.span, error);
+                     ty::mk_err()

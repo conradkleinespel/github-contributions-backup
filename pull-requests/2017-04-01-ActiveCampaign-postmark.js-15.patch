@@ -1,0 +1,22 @@
+From 280e341c7b28fbea08effd092ae068a98e780e8a Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sun, 2 Apr 2017 01:13:56 +0200
+Subject: [PATCH] fixes message format link in README.md
+
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 39e8913a..3d3976a6 100644
+--- a/README.md
++++ b/README.md
+@@ -32,7 +32,7 @@ client.sendEmail({
+ 
+ Replace <server key> with the server key provided by Postmark and you are good to go!
+ 
+-Your message must be provided in the format specified in the [Postmark API](http://developer.postmarkapp.com/developer-build.html#message-format) and will be verified. The **member names of 
++Your message must be provided in the format specified in the [Postmark API](http://developer.postmarkapp.com/developer-api-messages.html#outbound-message-details) and will be verified. The **member names of 
+ message payloads are case-sensitive**, and messages not matching the documented format will not
+ be accepted by the API.
+ 

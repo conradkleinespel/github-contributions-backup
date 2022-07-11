@@ -1,0 +1,22 @@
+diff --git a/src/Illuminate/Database/Eloquent/Model.php b/src/Illuminate/Database/Eloquent/Model.php
+index fb4913f4d63..1f8d860e64d 100644
+--- a/src/Illuminate/Database/Eloquent/Model.php
++++ b/src/Illuminate/Database/Eloquent/Model.php
+@@ -162,7 +162,7 @@ public function fill(array $attributes)
+ 			// assignment to the model, and all others will just be ignored.
+ 			if ($this->isFillable($key))
+ 			{
+-				$this->$key = $value;
++				$this->setAttribute($key, $value);
+ 			}
+ 		}
+ 
+@@ -581,7 +581,7 @@ protected function performInsert($query)
+ 		{
+ 			$keyName = $this->getKeyName();
+ 
+-			$this->$keyName = $query->insertGetId($attributes, $keyName);
++			$this->setAttribute($keyName, $query->insertGetId($attributes, $keyName));
+ 		}
+ 
+ 		// If the table is not incrementing we'll simply insert this attirbutes as they

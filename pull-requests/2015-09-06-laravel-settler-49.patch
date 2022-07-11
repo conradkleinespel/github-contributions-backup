@@ -1,0 +1,22 @@
+From 64c46145e350711caaaaf37012bf2f52e2444d85 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sun, 6 Sep 2015 16:26:59 +0200
+Subject: [PATCH] adds libnotify-bin package
+
+---
+ scripts/provision.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/provision.sh b/scripts/provision.sh
+index 957204f..6118316 100644
+--- a/scripts/provision.sh
++++ b/scripts/provision.sh
+@@ -35,7 +35,7 @@ apt-get update
+ # Install Some Basic Packages
+ 
+ apt-get install -y build-essential dos2unix gcc git libmcrypt4 libpcre3-dev \
+-make python2.7-dev python-pip re2c supervisor unattended-upgrades whois vim
++make python2.7-dev python-pip re2c supervisor unattended-upgrades whois vim libnotify-bin
+ 
+ # Set My Timezone
+ 

@@ -1,0 +1,21 @@
+From 6381f3982e615678035c9b14e0c1102eb80bbba7 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sat, 1 Apr 2017 22:02:16 +0200
+Subject: [PATCH] bumps version up
+
+---
+ package.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package.json b/package.json
+index dbc1934..e270f5e 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+     "name": "better-assert",
+-    "version": "1.0.2",
++    "version": "1.0.3",
+     "license": "MIT",
+     "description": "Better assertions for node, reporting the expr, filename, lineno etc",
+     "keywords": [

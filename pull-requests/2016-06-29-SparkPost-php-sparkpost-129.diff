@@ -1,0 +1,15 @@
+diff --git a/lib/SparkPost/Transmission.php b/lib/SparkPost/Transmission.php
+index 6c45c7e..4c2eda8 100644
+--- a/lib/SparkPost/Transmission.php
++++ b/lib/SparkPost/Transmission.php
+@@ -90,7 +90,9 @@ private function formatCarbonCopy($payload)
+      */
+     private function formatShorthandRecipients($payload)
+     {
+-        $payload['content']['from'] = $this->toAddressObject($payload['content']['from']);
++        if (isset($payload['content']['from'])) {
++            $payload['content']['from'] = $this->toAddressObject($payload['content']['from']);
++        }
+ 
+         for ($i = 0; $i < count($payload['recipients']); ++$i) {
+             $payload['recipients'][$i]['address'] = $this->toAddressObject($payload['recipients'][$i]['address']);

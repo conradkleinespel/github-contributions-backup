@@ -1,0 +1,98 @@
+diff --git a/configure.ac b/configure.ac
+index 2b35d7348f..616d0e29d7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1500,12 +1500,6 @@ AC_ARG_ENABLE(oldsievename,
+ 	fi,
+ 	AC_MSG_RESULT(no))
+ 
+-AC_ARG_ENABLE(netscapehack,
+-	[AS_HELP_STRING([--enable-netscapehack], [enable Netscape hack for the menu option in Communicator to Administrate Mail])],
+-	if test "$enableval" = yes; then
+-		AC_DEFINE(ENABLE_X_NETSCAPE_HACK,[],[Enable Netscape Menu Option Hack?])
+-	fi)
+-
+ CMU_SASL2_REQUIRE_VER(2,1,7)
+ CMU_SASL2_CHECKAPOP_REQUIRED
+ 
+diff --git a/doc/install-compile.html b/doc/install-compile.html
+index 268f7a7143..3274d55ab1 100644
+--- a/doc/install-compile.html
++++ b/doc/install-compile.html
+@@ -196,9 +196,6 @@ <h2>Options to <kbd>configure</kbd></h2>
+ <dt><tt>--enable-murder</tt>
+ <dd>Enables support for IMAP Murder.<p>
+ 
+-<dt><tt>--enable-netscapehack</tt>
+-<dd>Enables support for X-NETSCAPE extension (administration URLs).<p>
+-
+ <dt><tt>--disable-sieve</tt>
+ <dd>By default, Sieve support is enabled.  Use
+ <tt>--disable-sieve</tt> to disable compiling the Sieve library and to
+diff --git a/imap/imapd.c b/imap/imapd.c
+index ed2c43cdd3..f489c48363 100644
+--- a/imap/imapd.c
++++ b/imap/imapd.c
+@@ -332,9 +332,6 @@ static struct capa_struct base_capabilities[] = {
+     { "URLAUTH",               2 },
+     { "URLAUTH=BINARY",        2 },
+ #endif
+-#ifdef ENABLE_X_NETSCAPE_HACK
+-    { "X-NETSCAPE",            2 },
+-#endif
+ 
+ /* keep this to mark the end of the list */
+     { 0,                       0 }
+@@ -412,10 +409,6 @@ static void cmd_resetkey(char *tag, char *mailbox, char *mechanism);
+ static void cmd_compress(char *tag, char *alg);
+ #endif
+ 
+-#ifdef ENABLE_X_NETSCAPE_HACK
+-void cmd_netscrape(char* tag);
+-#endif
+-
+ static void cmd_getannotation(const char* tag, char *mboxpat);
+ static void cmd_getmetadata(const char* tag);
+ static void cmd_setannotation(const char* tag, char *mboxpat);
+@@ -1766,13 +1759,6 @@ static void cmdloop(void)
+ 
+ 		/* xxxx snmp_increment(NOOP_COUNT, 1); */
+ 	    }
+-#ifdef ENABLE_X_NETSCAPE_HACK
+-	    else if (!strcmp(cmd.s, "Netscape")) {
+-		if (c == '\r') c = prot_getc(imapd_in);
+-		if (c != '\n') goto extraargs;
+-		cmd_netscrape(tag.s);
+-	    }
+-#endif
+ 	    else if (!imapd_userid) goto nologin;
+ 	    else if (!strcmp(cmd.s, "Namespace")) {
+ 		if (c == '\r') c = prot_getc(imapd_in);
+@@ -8671,27 +8657,6 @@ static void cmd_status(char *tag, char *name)
+     return;
+ }
+ 
+-#ifdef ENABLE_X_NETSCAPE_HACK
+-/*
+- * Reply to Netscape's crock with a crock of my own
+- */
+-void cmd_netscrape(char *tag)
+-{
+-    const char *url;
+-
+-    url = config_getstring(IMAPOPT_NETSCAPEURL);
+-
+-    /* I only know of three things to reply with: */
+-    prot_printf(imapd_out,
+-		"* OK [NETSCAPE] Carnegie Mellon Cyrus IMAP\r\n"
+-		"* VERSION %s\r\n",
+-		cyrus_version());
+-    if (url) prot_printf(imapd_out, "* ACCOUNT-URL %s\r\n", url);
+-    prot_printf(imapd_out, "%s OK %s\r\n",
+-		tag, error_message(IMAP_OK_COMPLETED));
+-}
+-#endif /* ENABLE_X_NETSCAPE_HACK */
+-
+ /* Callback for cmd_namespace to be passed to mboxlist_findall.
+  * For each top-level mailbox found, print a bit of the response
+  * if it is a shared namespace.  The rock is used as an integer in

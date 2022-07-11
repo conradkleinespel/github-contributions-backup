@@ -1,0 +1,37 @@
+From c74d320662329922860c5cdaf8cba1797caebea4 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 4 Aug 2014 21:43:30 +0200
+Subject: [PATCH] libgetopts: tweak HasHarg/Occur docs.
+
+---
+ src/libgetopts/lib.rs | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/libgetopts/lib.rs b/src/libgetopts/lib.rs
+index 922bf768854ea..3c6736d536108 100644
+--- a/src/libgetopts/lib.rs
++++ b/src/libgetopts/lib.rs
+@@ -115,9 +115,9 @@ pub enum Name {
+ pub enum HasArg {
+     /// The option requires an argument.
+     Yes,
+-    /// The option is just a flag, therefore no argument.
++    /// The option takes no argument.
+     No,
+-    /// The option argument is optional and it could or not exist.
++    /// The option argument is optional.
+     Maybe,
+ }
+ 
+@@ -126,9 +126,9 @@ pub enum HasArg {
+ pub enum Occur {
+     /// The option occurs once.
+     Req,
+-    /// The option could or not occur.
++    /// The option occurs at most once.
+     Optional,
+-    /// The option occurs once or multiple times.
++    /// The option occurs zero or more times.
+     Multi,
+ }
+ 

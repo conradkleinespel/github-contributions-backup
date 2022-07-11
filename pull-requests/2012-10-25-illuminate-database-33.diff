@@ -1,0 +1,26 @@
+diff --git a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+index 709ee3672..6ed01e580 100644
+--- a/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
++++ b/src/Illuminate/Database/Schema/Grammars/PostgresGrammar.php
+@@ -219,7 +219,7 @@ protected function typeText(Fluent $column)
+ 	 */
+ 	protected function typeInteger(Fluent $column)
+ 	{
+-		return $column->autoIncrement ? 'serial' : 'bigint';
++		return $column->autoIncrement ? 'serial' : 'integer';
+ 	}
+ 
+ 	/**
+diff --git a/tests/PostgresSchemaGrammarTest.php b/tests/PostgresSchemaGrammarTest.php
+index ec0d18591..43cb20512 100644
+--- a/tests/PostgresSchemaGrammarTest.php
++++ b/tests/PostgresSchemaGrammarTest.php
+@@ -214,7 +214,7 @@ public function testAddingInteger()
+ 		$statements = $blueprint->toSql($this->getGrammar());
+ 
+ 		$this->assertEquals(1, count($statements));
+-		$this->assertEquals('alter table "users" add column "foo" bigint not null', $statements[0]);
++		$this->assertEquals('alter table "users" add column "foo" integer not null', $statements[0]);
+ 
+ 		$blueprint = new Blueprint('users');
+ 		$blueprint->integer('foo', true);

@@ -1,0 +1,29 @@
+From 6b0523f440779707afe41b95c9f8c93a3c9031c6 Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 8 Jan 2016 06:56:47 +0100
+Subject: [PATCH] README.markdown: tries to improve examples keybindings
+
+---
+ README.markdown | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/README.markdown b/README.markdown
+index d8a2322..2732d2f 100644
+--- a/README.markdown
++++ b/README.markdown
+@@ -10,8 +10,13 @@ Automatically adds the corresponding `use` statement for the class under the cur
+ 
+ To use this feature, add the following mappings in `~/.vimrc`:
+ 
+-    inoremap <Leader>u <C-O>:call PhpInsertUse()<CR>
+-    noremap <Leader>u :call PhpInsertUse()<CR>
++    function! IPhpInsertUse()
++        call PhpInsertUse()
++        call feedkeys('a',  'n')
++    endfunction
++    autocmd FileType php inoremap <Leader>u <Esc>:call IPhpInsertUse()<CR>
++    autocmd FileType php noremap <Leader>u :call PhpInsertUse()<CR>
++
+ 
+ Then, hitting `\u` in normal or insert mode will import the class under the cursor.
+ 

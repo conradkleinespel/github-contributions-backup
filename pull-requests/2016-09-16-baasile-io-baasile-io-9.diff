@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index ab47fd8b..93e0548a 100644
+--- a/package.json
++++ b/package.json
+@@ -39,6 +39,7 @@
+     "mongodb": "^2.1.18",
+     "mongoose": "^4.5.0",
+     "nconf": "0.8.4",
++    "node-sass": "^3.10.0",
+     "nodemailer": "^2.5.0",
+     "request": "2.70.0",
+     "slack-notify": "^0.1.6",

@@ -1,0 +1,37 @@
+From 5da80ea455cfe157bb5db919d260f9e221fc1f0b Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Mon, 1 Jun 2015 19:04:30 +0200
+Subject: [PATCH] replace "os.getlogin()" with "pwd.getpwuid(os.getuid())"
+
+Hello everyone,
+
+I am setting up Open IO in Docker. In the process, I notice that using `os.getlogin()` does not work if the user that executes the program is not logged in via the `login` command. More generally, it seems like `getlogin()` is not too reliable and `getpwuid(getuid())` seems to be a better way to do the same thing: http://stackoverflow.com/questions/4785126/getlogin-c-function-returns-null-and-error-no-such-file-or-directory
+
+Best regards,
+Conrad
+---
+ tools/sds-bootstrap.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/sds-bootstrap.py b/tools/sds-bootstrap.py
+index b1d45a3e10..1a650a2550 100755
+--- a/tools/sds-bootstrap.py
++++ b/tools/sds-bootstrap.py
+@@ -17,7 +17,7 @@
+ # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ 
+ from string import Template
+-import os, errno
++import os, errno, pwd
+ 
+ #env.G_DEBUG=fatal_warnings
+ #env.G_SLICE=debug-blocks
+@@ -517,7 +517,7 @@ def getint(v,default):
+ 			SDSDIR=SDSDIR, TMPDIR=TMPDIR,
+ 			DATADIR=DATADIR, CFGDIR=CFGDIR, RUNDIR=RUNDIR, SPOOLDIR=SPOOLDIR,
+ 			LOGDIR=LOGDIR, CODEDIR=CODEDIR,
+-			UID=str(os.geteuid()), GID=str(os.getgid()), USER=str(os.getlogin()),
++			UID=str(os.geteuid()), GID=str(os.getgid()), USER=str(pwd.getpwuid(os.getuid())),
+ 			VERSIONING=versioning, STGPOL=stgpol,
+ 			M2_REPLICAS=meta2_replicas, M2_DISTANCE=str(1),
+ 			SQLX_REPLICAS=sqlx_replicas, SQLX_DISTANCE=str(1))
