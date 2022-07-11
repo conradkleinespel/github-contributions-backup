@@ -1,0 +1,32 @@
+From a08b24df4661086b9b7bd83846fdb6836374d54c Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Sat, 3 Sep 2016 05:26:34 +0200
+Subject: [PATCH] blocks access to /data with the docker image
+
+---
+ Dockerfile | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 50fc755..e734871 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -2,8 +2,16 @@ FROM ubuntu:14.04
+ 
+ RUN apt-get update && \
+     apt-get install -y apache2 php5 php5-sqlite php5-curl && \
+-    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+-    echo "ServerName localhost" >> /etc/apache2/apache2.conf
++    apt-get clean && rm -rf /var/lib/apt/lists/*
++
++RUN echo \
++    "ServerName localhost\n" \
++    "<Directory /var/www/html/data/>\n" \
++    "    Deny from all\n" \
++    "</Directory>\n" \
++    "<Directory /var/www/html/data/favicons/>\n" \
++    "    Allow from all\n" \
++    "</Directory>\n" >> /etc/apache2/apache2.conf
+ 
+ COPY . /var/www/html
+ 
