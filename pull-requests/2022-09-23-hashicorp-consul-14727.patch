@@ -1,0 +1,34 @@
+From 9cc1010534932586620323c5ed17244f76881dfa Mon Sep 17 00:00:00 2001
+From: Conrad Kleinespel <conradk@conradk.com>
+Date: Fri, 23 Sep 2022 10:53:52 +0200
+Subject: [PATCH] Fix AWS IAM trusted identity entity_tags.<key>
+
+---
+ .../docs/security/acl/auth-methods/aws-iam.mdx     | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/website/content/docs/security/acl/auth-methods/aws-iam.mdx b/website/content/docs/security/acl/auth-methods/aws-iam.mdx
+index d649e82d2c21..696bc02f0278 100644
+--- a/website/content/docs/security/acl/auth-methods/aws-iam.mdx
++++ b/website/content/docs/security/acl/auth-methods/aws-iam.mdx
+@@ -107,13 +107,13 @@ The authentication step returns the following trusted identity attributes for us
+ selectors and bind name interpolation. All of these attributes are strings that can be interpolated
+ and support the following selector operations: `Equal, Not Equal, In, Not In, Matches, Not Matches`
+ 
+-| Attribute            | Description                         | Requirement                                                      |
+-| -------------------- | ----------------------------------- | ---------------------------------------------------------------- |
+-| `entity_name`        | Name of IAM role or user            |                                                                  |
+-| `entity_id`          | Unique ID of IAM role or user       |                                                                  |
+-| `account_id`         | AWS account id of IAM role or user  |                                                                  |
+-| `entity_path`        | The path of the IAM role or user    | `EnableIAMEntityDetails=true`                                    |
+-| `entity_tags.<key>`  | AWS account id of IAM role or user  | `EnableIAMEntityDetails=true` and `IAMEntityTags` contains `<key>` |
++| Attribute            | Description                             | Requirement                                                        |
++| -------------------- | --------------------------------------- | ------------------------------------------------------------------ |
++| `entity_name`        | Name of IAM role or user                |                                                                    |
++| `entity_id`          | Unique ID of IAM role or user           |                                                                    |
++| `account_id`         | AWS account id of IAM role or user      |                                                                    |
++| `entity_path`        | The path of the IAM role or user        | `EnableIAMEntityDetails=true`                                      |
++| `entity_tags.<key>`  | Value of a tag on the IAM role or user  | `EnableIAMEntityDetails=true` and `IAMEntityTags` contains `<key>` |
+ 
+ ## IAM Policies
+ 
